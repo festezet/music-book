@@ -1,0 +1,24 @@
+# Flask framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Database
+SQLAlchemy==2.0.23
+Flask-SQLAlchemy==3.1.1
+
+# PDF manipulation
+pypdf==3.17.4
+PyPDF2==3.0.1
+reportlab==4.0.7
+pdfrw==0.4
+
+# Image processing (for PDF thumbnails)
+Pillow==10.1.0
+pdf2image==1.16.3
+
+# Utilities
+python-dateutil==2.8.2
+werkzeug==3.0.1
+
+# Development
+python-dotenv==1.0.0

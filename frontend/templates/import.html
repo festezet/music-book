@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Import - Music Book Generator{% endblock %}
+{% block nav_import %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Import de PDF</h2>
+</div>
+
+<div class="import-container">
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📄</div>
+        <p>Glissez-déposez vos fichiers PDF ici</p>
+        <p class="upload-hint">ou</p>
+        <button class="btn btn-primary" id="btnSelectFiles">Sélectionner des fichiers</button>
+        <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
+    </div>
+
+    <div class="upload-progress" id="uploadProgress" style="display: none;">
+        <h3>Upload en cours...</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="progressText">0%</p>
+    </div>
+
+    <div class="uploaded-files" id="uploadedFiles" style="display: none;">
+        <h3>Fichiers uploadés</h3>
+        <div id="uploadedFilesList"></div>
+    </div>
+</div>
+
+<div class="import-instructions">
+    <h3>Instructions</h3>
+    <ol>
+        <li>Uploadez vos fichiers PDF (partitions, chords, lyrics)</li>
+        <li>Les métadonnées de base seront extraites automatiquement</li>
+        <li>Complétez les informations manquantes dans le Catalogue</li>
+        <li>Organisez vos morceaux par instrument et difficulté</li>
+    </ol>
+
+    <div class="info-box">
+        <strong>Formats acceptés:</strong> PDF uniquement<br>
+        <strong>Taille max:</strong> 50 MB par fichier<br>
+        <strong>Upload multiple:</strong> Oui
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Script d'import (simplifié pour l'instant)
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const btnSelectFiles = document.getElementById('btnSelectFiles');
+
+btnSelectFiles.addEventListener('click', () => {
+    fileInput.click();
+});
+
+uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+});
+
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    handleFiles(files);
+});
+
+fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+function handleFiles(files) {
+    console.log('Files to upload:', files.length);
+    alert('Upload de PDF non implémenté pour l\'instant. Voir api/routes.py');
+    // TODO: Implémenter l'upload réel
+}
+</script>
+{% endblock %}

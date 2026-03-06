@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres - Music Book Generator{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Paramètres</h2>
+</div>
+
+<div class="settings-container">
+    <section class="settings-section">
+        <h3>Génération de PDF</h3>
+
+        <div class="form-group">
+            <label for="defaultFormat">Format de page par défaut</label>
+            <select id="defaultFormat">
+                <option value="A4" selected>A4</option>
+                <option value="Letter">Letter (US)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="defaultOrientation">Orientation par défaut</label>
+            <select id="defaultOrientation">
+                <option value="portrait" selected>Portrait</option>
+                <option value="landscape">Paysage</option>
+            </select>
+        </div>
+    </section>
+
+    <section class="settings-section">
+        <h3>Stockage</h3>
+
+        <div class="info-box">
+            <p><strong>PDF sources:</strong> /data/projects/music-book/data/pdfs/</p>
+            <p><strong>PDF générés:</strong> /data/projects/music-book/data/generated/</p>
+            <p><strong>Base de données:</strong> /data/projects/music-book/data/catalog.db</p>
+        </div>
+    </section>
+
+    <section class="settings-section">
+        <h3>Statistiques</h3>
+
+        <div id="stats">
+            <p><strong>Morceaux dans le catalogue:</strong> <span id="statSongs">-</span></p>
+            <p><strong>Books créés:</strong> <span id="statBooks">-</span></p>
+        </div>
+    </section>
+
+    <section class="settings-section">
+        <h3>Actions</h3>
+
+        <button class="btn btn-secondary" id="btnExportCatalog">Exporter le catalogue (CSV)</button>
+        <button class="btn btn-danger" id="btnClearDatabase">Réinitialiser la base de données</button>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Charger les stats
+async function loadStats() {
+    try {
+        const [songsRes, booksRes] = await Promise.all([
+            fetch('/api/catalog'),
+            fetch('/api/books')
+        ]);
+
+        const songs = await songsRes.json();
+        const books = await booksRes.json();
+
+        document.getElementById('statSongs').textContent = songs.length;
+        document.getElementById('statBooks').textContent = books.length;
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadStats);
+
+// Export catalogue
+document.getElementById('btnExportCatalog').addEventListener('click', () => {
+    alert('Export non implémenté pour l\'instant');
+});
+
+// Clear database
+document.getElementById('btnClearDatabase').addEventListener('click', () => {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser la base de données ? Cette action est irréversible.')) {
+        alert('Fonction non implémentée');
+    }
+});
+</script>
+{% endblock %}

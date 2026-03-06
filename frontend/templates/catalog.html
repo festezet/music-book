@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Catalogue - Music Book Generator{% endblock %}
+{% block nav_catalog %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Catalogue de Morceaux</h2>
+    <button class="btn btn-primary" id="btnAddSong">Ajouter un morceau</button>
+</div>
+
+<div class="filters">
+    <input type="text" id="searchInput" placeholder="Rechercher (titre, artiste...)">
+
+    <select id="filterInstrument">
+        <option value="">Tous les instruments</option>
+        <option value="guitar">Guitare</option>
+        <option value="bass">Basse</option>
+        <option value="violin">Violon</option>
+    </select>
+
+    <select id="filterDifficulty">
+        <option value="">Toutes difficultés</option>
+        <option value="easy">Facile</option>
+        <option value="medium">Moyen</option>
+        <option value="advanced">Avancé</option>
+    </select>
+
+    <button class="btn btn-secondary" id="btnClearFilters">Réinitialiser</button>
+</div>
+
+<div id="catalogGrid" class="catalog-grid">
+    <!-- Les morceaux seront chargés dynamiquement -->
+</div>
+
+<!-- Modal pour ajouter/éditer un morceau -->
+<div id="songModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3 id="modalTitle">Ajouter un morceau</h3>
+
+        <form id="songForm">
+            <input type="hidden" id="songId">
+
+            <div class="form-group">
+                <label for="title">Titre *</label>
+                <input type="text" id="title" required>
+            </div>
+
+            <div class="form-group">
+                <label for="artist">Artiste</label>
+                <input type="text" id="artist">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="key">Tonalité</label>
+                    <input type="text" id="key" placeholder="C, Dm, G7...">
+                </div>
+
+                <div class="form-group">
+                    <label for="tempo">Tempo (BPM)</label>
+                    <input type="number" id="tempo">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="genre">Genre</label>
+                <input type="text" id="genre" placeholder="Rock, Jazz, Blues...">
+            </div>
+
+            <div class="form-group">
+                <label for="difficulty">Difficulté</label>
+                <select id="difficulty">
+                    <option value="">Non spécifié</option>
+                    <option value="easy">Facile</option>
+                    <option value="medium">Moyen</option>
+                    <option value="advanced">Avancé</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Instruments</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="instruments" value="guitar"> Guitare</label>
+                    <label><input type="checkbox" name="instruments" value="bass"> Basse</label>
+                    <label><input type="checkbox" name="instruments" value="violin"> Violon</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="pages">Nombre de pages</label>
+                <input type="number" id="pages" min="1">
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" rows="3"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelModal">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/catalog.js') }}"></script>
+{% endblock %}

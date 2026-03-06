@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Book Builder - Music Book Generator{% endblock %}
+{% block nav_builder %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Construction de Music Book</h2>
+    <button class="btn btn-primary" id="btnNewBook">Nouveau Book</button>
+</div>
+
+<div class="book-builder-layout">
+    <!-- Panneau gauche : Catalogue disponible -->
+    <div class="available-songs-panel">
+        <h3>Morceaux disponibles</h3>
+
+        <div class="filters-compact">
+            <input type="text" id="searchSongs" placeholder="Rechercher...">
+            <select id="filterInstrumentBuilder">
+                <option value="">Tous</option>
+                <option value="guitar">Guitare</option>
+                <option value="bass">Basse</option>
+                <option value="violin">Violon</option>
+            </select>
+        </div>
+
+        <div id="availableSongsList" class="songs-list">
+            <!-- Morceaux chargés dynamiquement -->
+        </div>
+    </div>
+
+    <!-- Panneau droit : Book en construction -->
+    <div class="book-panel">
+        <div class="book-header">
+            <h3 id="bookTitle">Sélectionnez ou créez un book</h3>
+            <div class="book-actions">
+                <button class="btn btn-secondary" id="btnSaveBook" disabled>Sauvegarder</button>
+                <button class="btn btn-primary" id="btnGenerateBook" disabled>Générer PDF</button>
+            </div>
+        </div>
+
+        <div class="book-info" id="bookInfo" style="display: none;">
+            <p><strong>Instrument:</strong> <span id="bookInstrument"></span></p>
+            <p><strong>Morceaux:</strong> <span id="bookSongCount">0</span></p>
+            <p><strong>Pages estimées:</strong> <span id="bookPageCount">0</span></p>
+        </div>
+
+        <div id="bookSongsList" class="book-songs-list">
+            <p class="empty-state">Glissez-déposez des morceaux ici pour construire votre book</p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal nouveau book -->
+<div id="newBookModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Créer un nouveau Music Book</h3>
+
+        <form id="newBookForm">
+            <div class="form-group">
+                <label for="bookTitleInput">Titre du book *</label>
+                <input type="text" id="bookTitleInput" required placeholder="Music Book - Guitare">
+            </div>
+
+            <div class="form-group">
+                <label for="bookInstrumentInput">Instrument *</label>
+                <select id="bookInstrumentInput" required>
+                    <option value="guitar">Guitare</option>
+                    <option value="bass">Basse</option>
+                    <option value="violin">Violon</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Options</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="include_cover" checked> Page de garde</label>
+                    <label><input type="checkbox" name="include_toc" checked> Table des matières</label>
+                    <label><input type="checkbox" name="include_index" checked> Index alphabétique</label>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Créer</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelNewBook">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/book_builder.js') }}"></script>
+{% endblock %}
