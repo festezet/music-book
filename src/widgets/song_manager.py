@@ -584,7 +584,7 @@ class SongManagerDialog(ctk.CTkToplevel):
         filepath = filedialog.askopenfilename(
             title="Selectionner un fichier PDF",
             filetypes=[("Fichiers PDF", "*.pdf"), ("Tous les fichiers", "*.*")],
-            initialdir="/home/fabrice-ryzen/Downloads/Chords"
+            initialdir=os.path.join(os.path.expanduser("~"), "Downloads")
         )
         if filepath:
             self.pdf_path_var.set(filepath)
@@ -612,7 +612,7 @@ class SongManagerDialog(ctk.CTkToplevel):
         filepaths = filedialog.askopenfilenames(
             title="Selectionner des fichiers PDF a importer",
             filetypes=[("Fichiers PDF", "*.pdf"), ("Tous les fichiers", "*.*")],
-            initialdir="/home/fabrice-ryzen/Downloads/Chords"
+            initialdir=os.path.join(os.path.expanduser("~"), "Downloads")
         )
 
         if not filepaths:

@@ -3,7 +3,7 @@
 # Music Book Generator - Script de lancement
 # Port: 5051
 
-PROJECT_DIR="/data/projects/music-book"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$PROJECT_DIR/backend"
 PORT=5051
 

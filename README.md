@@ -223,7 +223,7 @@ Voir [ROADMAP.md](ROADMAP.md) pour la feuille de route détaillée.
 
 ## Documentation
 
-- [SPECIFICATIONS.md](docs/SPECIFICATIONS.md) - Détails techniques complets
+- [SPEC.md](docs/spec/SPEC.md) - Specification technique complete (architecture, modele de donnees, 7 features, API)
 - [ROADMAP.md](ROADMAP.md) - Feuille de route et jalons
 - [CHANGELOG.md](CHANGELOG.md) - Historique des versions
 - [Sessions](docs/sessions/) - Documentation des sessions de développement

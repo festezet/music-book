@@ -118,7 +118,7 @@ class MusicBookGenerator:
 
     def _get_default_output_dir(self) -> str:
         """Retourne le répertoire de sortie par défaut"""
-        return "/data/projects/music-book/data/generated"
+        return str(Path(__file__).parent.parent.parent / "data" / "generated")
 
     def _get_page_size(self, config: BookConfig):
         """Retourne la taille de page selon la configuration"""

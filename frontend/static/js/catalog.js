@@ -143,7 +143,7 @@ async function saveSong(e) {
         instruments: instruments,
         pages: parseInt(document.getElementById('pages').value) || null,
         notes: document.getElementById('notes').value,
-        pdf_path: `/data/projects/music-book/data/pdfs/placeholder_${Date.now()}.pdf` // Placeholder
+        pdf_path: `data/pdfs/placeholder_${Date.now()}.pdf` // Placeholder - relative path
     };
 
     try {

@@ -697,7 +697,7 @@ class SongDialog:
             instruments.append('violin')
 
         # PDF path
-        pdf_path = self.pdf_path or f'/data/projects/music-book/data/pdfs/placeholder_{title.replace(" ", "_")}.pdf'
+        pdf_path = self.pdf_path or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'pdfs', f'placeholder_{title.replace(" ", "_")}.pdf')
 
         self.result = {
             'title': title,

@@ -1,4 +1,4 @@
 #!/bin/bash
 # Lanceur du Music Book Workflow GUI
-cd /data/projects/music-book
+cd "$(dirname "$0")"
 python3 workflow_gui.py

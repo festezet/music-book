@@ -353,7 +353,7 @@ def main():
     parser.add_argument(
         'folder',
         nargs='?',
-        default='/home/fabrice-ryzen/Downloads/Chords',
+        default=os.path.expanduser('~/Downloads/Chords'),
         help="Dossier contenant les PDF (défaut: ~/Downloads/Chords)"
     )
     parser.add_argument(

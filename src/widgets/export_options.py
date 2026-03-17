@@ -1,6 +1,7 @@
 """
 Export Options Panel - Step 3: PDF export configuration
 """
+import os
 import customtkinter as ctk
 from typing import Callable, Dict, Any
 
@@ -26,7 +27,7 @@ class ExportOptionsPanel(ctk.CTkFrame):
             'margin_left': ctk.StringVar(value="15"),
             'margin_right': ctk.StringVar(value="15"),
             # Output
-            'output_dir': ctk.StringVar(value="/data/projects/music-book/data/generated"),
+            'output_dir': ctk.StringVar(value=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "generated")),
             'filename_pattern': ctk.StringVar(value="{title}_{instrument}_{date}"),
         }
 

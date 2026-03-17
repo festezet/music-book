@@ -90,7 +90,7 @@ def generate_catalog():
                 difficulty=song_data.get('difficulty'),
                 instruments=json.dumps(song_data.get('instruments', [])),
                 pages=song_data.get('pages', 1),
-                pdf_path=f"/data/projects/music-book/data/pdfs/placeholder_{song_data['title'].replace(' ', '_')}.pdf"
+                pdf_path=f"data/pdfs/placeholder_{song_data['title'].replace(' ', '_')}.pdf"
             )
             db.session.add(song)
 
@@ -125,4 +125,4 @@ if __name__ == '__main__':
     generate_catalog()
 
     print("\n🚀 Lancez l'application avec: ./start.sh")
-    print("   Puis ouvrez: http://localhost:5051/catalog")
+    print("   Puis ouvrez le /catalog dans votre navigateur")

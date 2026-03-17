@@ -282,7 +282,7 @@ def import_file(filepath: Path, dest_folder: Path, dry_run: bool = False) -> dic
 def batch_import(source_folder: str, dry_run: bool = False):
     """Import all PDF files from folder"""
     source_path = Path(source_folder)
-    dest_folder = Path('/data/projects/music-book/data/pdfs')
+    dest_folder = Path(__file__).parent.parent / 'data' / 'pdfs'
 
     if not source_path.exists():
         print(f"Error: Folder not found: {source_folder}")

@@ -3,7 +3,7 @@
 # Music Book Generator - Lanceur GUI
 # Lance l'interface Tkinter
 
-PROJECT_DIR="/data/projects/music-book"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "========================================="
 echo "  Music Book Generator - GUI"
