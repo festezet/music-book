@@ -114,33 +114,29 @@ class BookListPanel(ctk.CTkFrame):
         book_id = book['id']
         is_selected = self._selected_book_id == book_id
 
-        # Different colors for selected vs normal
-        if is_selected:
-            fg_color = ("#3b82f6", "#2563eb")  # Blue for selected
-        else:
-            fg_color = ("#f3f4f6", "#374151")  # Default gray
+        fg_color = ("#3b82f6", "#2563eb") if is_selected else ("#f3f4f6", "#374151")
 
         item = ctk.CTkFrame(self.list_frame, corner_radius=8, fg_color=fg_color)
         item.pack(fill="x", padx=5, pady=3)
-
-        # Store reference for highlighting
         self._book_frames[book_id] = item
 
-        # Make clickable (left click = select, right click = context menu)
         item.bind("<Button-1>", lambda e, b=book: self._select_book(b))
         item.bind("<Button-3>", lambda e, b=book: self._show_context_menu(e, b))
 
-        # Content
         content = ctk.CTkFrame(item, fg_color="transparent")
         content.pack(fill="x", padx=10, pady=8)
         content.bind("<Button-1>", lambda e, b=book: self._select_book(b))
         content.bind("<Button-3>", lambda e, b=book: self._show_context_menu(e, b))
 
-        # Text color based on selection
         text_color = ("white", "white") if is_selected else None
         sub_text_color = ("#e5e7eb", "#d1d5db") if is_selected else ("#6b7280", "#9ca3af")
 
-        # Title
+        self._create_book_item_title(content, book, text_color)
+        self._create_book_item_info(content, book, book_id, sub_text_color)
+        self._create_book_item_date(content, book, sub_text_color)
+
+    def _create_book_item_title(self, content, book: Dict[str, Any], text_color):
+        """Create the title label inside a book item."""
         title_label = ctk.CTkLabel(
             content,
             text=book.get('title', 'Sans titre'),
@@ -152,10 +148,10 @@ class BookListPanel(ctk.CTkFrame):
         title_label.bind("<Button-1>", lambda e, b=book: self._select_book(b))
         title_label.bind("<Button-3>", lambda e, b=book: self._show_context_menu(e, b))
 
-        # Info line (instrument + morceaux)
+    def _create_book_item_info(self, content, book: Dict[str, Any], book_id, sub_text_color):
+        """Create the info label (instrument + song count) inside a book item."""
         instrument = book.get('instrument', 'guitar')
         song_count = book.get('song_count', 0)
-        # Instrument icon without emoji for CTk compatibility
         inst_display = {'guitar': 'Guitare', 'bass': 'Basse', 'violin': 'Violon'}.get(instrument, instrument.capitalize())
         info_text = f"{inst_display} - {song_count} morceaux"
 
@@ -170,11 +166,11 @@ class BookListPanel(ctk.CTkFrame):
         info_label.bind("<Button-1>", lambda e, b=book: self._select_book(b))
         info_label.bind("<Button-3>", lambda e, b=book: self._show_context_menu(e, b))
 
-        # Store reference for updating song count
         self._book_info_labels[book_id] = info_label
-        info_label._instrument = instrument  # Store for rebuilding text
+        info_label._instrument = instrument
 
-        # Date line
+    def _create_book_item_date(self, content, book: Dict[str, Any], sub_text_color):
+        """Create the date label inside a book item."""
         created_at = book.get('created_at', '')
         if created_at:
             try:

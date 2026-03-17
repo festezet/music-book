@@ -3,25 +3,20 @@
 Music Book Generator - Interface GUI Tkinter
 Application desktop pour créer des livres de partitions/chords/lyrics
 """
-
-import sys
-import os
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import json
 
 # Backup DB au demarrage
 from db_backup import backup_database
 backup_database()
 
-# Ajouter le répertoire backend au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-from app import app, db
-from models.song import Song
-from models.book import Book
-from models.book_song import BookSong
+from music_book_operations import (
+    init_database, query_catalog_songs, get_song_for_edit,
+    update_song_from_dict, create_song, delete_song_by_id,
+    get_available_songs, get_song_info, calculate_book_pages,
+    save_book_to_db, generate_pdf
+)
 
 
 class MusicBookGUI:
@@ -30,9 +25,7 @@ class MusicBookGUI:
         self.root.title("Music Book Generator")
         self.root.geometry("1200x800")
 
-        # Initialiser la base de données
-        with app.app_context():
-            db.create_all()
+        init_database()
 
         # Variables
         self.current_book = None
@@ -64,17 +57,20 @@ class MusicBookGUI:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="📚 Catalogue")
 
-        # Frame filtres
+        self._create_catalog_filters(tab)
+        self._create_catalog_buttons(tab)
+        self._create_catalog_treeview(tab)
+
+    def _create_catalog_filters(self, tab):
+        """Create filter section for the catalog tab."""
         filter_frame = ttk.LabelFrame(tab, text="Filtres", padding=10)
         filter_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        # Recherche
         ttk.Label(filter_frame, text="Recherche:").grid(row=0, column=0, padx=5)
         self.search_var = tk.StringVar()
         self.search_var.trace('w', lambda *args: self.refresh_catalog())
         ttk.Entry(filter_frame, textvariable=self.search_var, width=30).grid(row=0, column=1, padx=5)
 
-        # Filtre instrument
         ttk.Label(filter_frame, text="Instrument:").grid(row=0, column=2, padx=5)
         self.instrument_filter = tk.StringVar(value="")
         instrument_combo = ttk.Combobox(filter_frame, textvariable=self.instrument_filter,
@@ -82,7 +78,6 @@ class MusicBookGUI:
         instrument_combo.grid(row=0, column=3, padx=5)
         instrument_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh_catalog())
 
-        # Filtre difficulté
         ttk.Label(filter_frame, text="Difficulté:").grid(row=0, column=4, padx=5)
         self.difficulty_filter = tk.StringVar(value="")
         difficulty_combo = ttk.Combobox(filter_frame, textvariable=self.difficulty_filter,
@@ -90,7 +85,8 @@ class MusicBookGUI:
         difficulty_combo.grid(row=0, column=5, padx=5)
         difficulty_combo.bind('<<ComboboxSelected>>', lambda e: self.refresh_catalog())
 
-        # Boutons actions
+    def _create_catalog_buttons(self, tab):
+        """Create action buttons for the catalog tab."""
         btn_frame = ttk.Frame(tab)
         btn_frame.pack(fill=tk.X, padx=10, pady=5)
 
@@ -103,22 +99,20 @@ class MusicBookGUI:
         ttk.Button(btn_frame, text="🔄 Actualiser",
                   command=self.refresh_catalog).pack(side=tk.LEFT, padx=5)
 
-        # Liste des morceaux (Treeview)
+    def _create_catalog_treeview(self, tab):
+        """Create the treeview for catalog song listing."""
         list_frame = ttk.Frame(tab)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Scrollbar
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Treeview
         columns = ("artist", "instruments", "difficulty", "key", "pages")
         self.catalog_tree = ttk.Treeview(list_frame, columns=columns,
                                          yscrollcommand=scrollbar.set, selectmode='browse')
         self.catalog_tree.pack(fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.catalog_tree.yview)
 
-        # Colonnes
         self.catalog_tree.heading("#0", text="Titre")
         self.catalog_tree.heading("artist", text="Artiste")
         self.catalog_tree.heading("instruments", text="Instruments")
@@ -133,7 +127,6 @@ class MusicBookGUI:
         self.catalog_tree.column("key", width=80)
         self.catalog_tree.column("pages", width=80)
 
-        # Double-clic pour éditer
         self.catalog_tree.bind('<Double-1>', lambda e: self.edit_song())
 
     def create_book_builder_tab(self):
@@ -141,22 +134,25 @@ class MusicBookGUI:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="📖 Book Builder")
 
-        # Frame du haut : configuration du book
+        self._create_book_config_frame(tab)
+        ttk.Separator(tab, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=10, pady=10)
+        self._create_book_panes(tab)
+        self.refresh_available_songs()
+
+    def _create_book_config_frame(self, tab):
+        """Create book configuration section with title, instrument and options."""
         config_frame = ttk.LabelFrame(tab, text="Configuration du Book", padding=10)
         config_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        # Titre du book
         ttk.Label(config_frame, text="Titre:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.book_title_var = tk.StringVar(value="Music Book - Guitare")
         ttk.Entry(config_frame, textvariable=self.book_title_var, width=40).grid(row=0, column=1, padx=5, pady=5)
 
-        # Instrument
         ttk.Label(config_frame, text="Instrument:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
         self.book_instrument_var = tk.StringVar(value="guitar")
         ttk.Combobox(config_frame, textvariable=self.book_instrument_var,
                     values=["guitar", "bass", "violin"], state="readonly", width=15).grid(row=0, column=3, padx=5, pady=5)
 
-        # Options
         self.include_cover_var = tk.BooleanVar(value=True)
         self.include_toc_var = tk.BooleanVar(value=True)
         self.include_index_var = tk.BooleanVar(value=True)
@@ -165,27 +161,26 @@ class MusicBookGUI:
         ttk.Checkbutton(config_frame, text="Table des matières", variable=self.include_toc_var).grid(row=1, column=1, sticky=tk.W, padx=5)
         ttk.Checkbutton(config_frame, text="Index alphabétique", variable=self.include_index_var).grid(row=1, column=2, sticky=tk.W, padx=5)
 
-        # Boutons
         btn_frame = ttk.Frame(config_frame)
         btn_frame.grid(row=2, column=0, columnspan=4, pady=10)
-
         ttk.Button(btn_frame, text="💾 Sauvegarder Book",
                   command=self.save_book).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="📄 Générer PDF (3 versions)",
                   command=self.generate_books).pack(side=tk.LEFT, padx=5)
 
-        # Séparateur horizontal
-        ttk.Separator(tab, orient=tk.HORIZONTAL).pack(fill=tk.X, padx=10, pady=10)
-
-        # Frame du milieu : panneaux gauche/droite
+    def _create_book_panes(self, tab):
+        """Create left/right panes for available songs and book songs."""
         panes = ttk.PanedWindow(tab, orient=tk.HORIZONTAL)
         panes.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Panneau gauche : morceaux disponibles
+        self._create_available_songs_pane(panes)
+        self._create_book_songs_pane(panes)
+
+    def _create_available_songs_pane(self, panes):
+        """Create left pane with available songs list."""
         left_frame = ttk.LabelFrame(panes, text="Morceaux disponibles", padding=10)
         panes.add(left_frame, weight=1)
 
-        # Liste morceaux disponibles
         scrollbar_left = ttk.Scrollbar(left_frame)
         scrollbar_left.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -199,15 +194,14 @@ class MusicBookGUI:
         self.available_tree.column("#0", width=200)
         self.available_tree.column("artist", width=150)
 
-        # Bouton ajouter
         ttk.Button(left_frame, text="➡️ Ajouter au book",
                   command=self.add_to_book).pack(pady=5)
 
-        # Panneau droit : morceaux du book
+    def _create_book_songs_pane(self, panes):
+        """Create right pane with book songs list and controls."""
         right_frame = ttk.LabelFrame(panes, text="Morceaux du book", padding=10)
         panes.add(right_frame, weight=1)
 
-        # Liste morceaux du book
         scrollbar_right = ttk.Scrollbar(right_frame)
         scrollbar_right.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -223,10 +217,8 @@ class MusicBookGUI:
         self.book_tree.column("artist", width=150)
         self.book_tree.column("pages", width=80)
 
-        # Boutons
         btn_frame_right = ttk.Frame(right_frame)
         btn_frame_right.pack(pady=5)
-
         ttk.Button(btn_frame_right, text="⬆️ Monter",
                   command=self.move_up).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame_right, text="⬇️ Descendre",
@@ -234,31 +226,23 @@ class MusicBookGUI:
         ttk.Button(btn_frame_right, text="🗑️ Retirer",
                   command=self.remove_from_book).pack(side=tk.LEFT, padx=2)
 
-        # Label info
         self.book_info_label = ttk.Label(right_frame, text="Book vide", font=('Arial', 10, 'italic'))
         self.book_info_label.pack(pady=5)
-
-        # Charger morceaux disponibles
-        self.refresh_available_songs()
 
     def create_import_tab(self):
         """Onglet import de PDF"""
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="📥 Import PDF")
 
-        # Frame principal
         frame = ttk.LabelFrame(tab, text="Importer des fichiers PDF", padding=20)
         frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-        # Instructions
         ttk.Label(frame, text="Sélectionnez des fichiers PDF de partitions/chords/lyrics",
                  font=('Arial', 12)).pack(pady=10)
 
-        # Bouton sélection
         ttk.Button(frame, text="📁 Sélectionner des fichiers PDF",
                   command=self.import_pdfs, style='Large.TButton').pack(pady=20)
 
-        # Informations
         info_text = """
         Instructions :
         1. Cliquez sur "Sélectionner des fichiers PDF"
@@ -272,57 +256,29 @@ class MusicBookGUI:
         ttk.Label(frame, text=info_text, justify=tk.LEFT,
                  font=('Arial', 10)).pack(pady=10)
 
-    # ===== MÉTHODES CATALOGUE =====
+    # ===== METHODES CATALOGUE =====
 
     def refresh_catalog(self):
         """Actualiser la liste du catalogue"""
-        # Vider la liste
         for item in self.catalog_tree.get_children():
             self.catalog_tree.delete(item)
 
-        # Requête avec filtres
-        with app.app_context():
-            query = Song.query
-
-            # Filtre recherche
-            search = self.search_var.get().strip()
-            if search:
-                query = query.filter(
-                    db.or_(
-                        Song.title.ilike(f'%{search}%'),
-                        Song.artist.ilike(f'%{search}%')
-                    )
-                )
-
-            # Filtre instrument
-            instrument = self.instrument_filter.get()
-            if instrument:
-                query = query.filter(Song.instruments.contains(f'"{instrument}"'))
-
-            # Filtre difficulté
-            difficulty = self.difficulty_filter.get()
-            if difficulty:
-                query = query.filter(Song.difficulty == difficulty)
-
-            songs = query.order_by(Song.title).all()
-
-            # Ajouter à la liste
-            for song in songs:
-                instruments = ', '.join(json.loads(song.instruments) if song.instruments else [])
-                self.catalog_tree.insert('', tk.END, text=song.title, iid=str(song.id),
-                                        values=(song.artist or '', instruments,
-                                               song.difficulty or '', song.key or '',
-                                               song.pages or ''))
+        songs = query_catalog_songs(
+            search=self.search_var.get().strip(),
+            instrument=self.instrument_filter.get(),
+            difficulty=self.difficulty_filter.get()
+        )
+        for song in songs:
+            self.catalog_tree.insert('', tk.END, text=song['title'], iid=str(song['id']),
+                                    values=(song['artist'], song['instruments'],
+                                           song['difficulty'], song['key'],
+                                           song['pages']))
 
     def add_song(self):
         """Ajouter un morceau"""
         dialog = SongDialog(self.root, "Ajouter un morceau")
         if dialog.result:
-            with app.app_context():
-                song = Song.from_dict(dialog.result)
-                db.session.add(song)
-                db.session.commit()
-
+            create_song(dialog.result)
             messagebox.showinfo("Succès", "Morceau ajouté avec succès")
             self.refresh_catalog()
             self.refresh_available_songs()
@@ -335,33 +291,14 @@ class MusicBookGUI:
             return
 
         song_id = int(selection[0])
-
-        with app.app_context():
-            song = Song.query.get(song_id)
-            if not song:
-                messagebox.showerror("Erreur", "Morceau introuvable")
-                return
-
-            song_data = song.to_dict()
+        song_data = get_song_for_edit(song_id)
+        if not song_data:
+            messagebox.showerror("Erreur", "Morceau introuvable")
+            return
 
         dialog = SongDialog(self.root, "Éditer le morceau", song_data)
         if dialog.result:
-            with app.app_context():
-                song = Song.query.get(song_id)
-
-                # Mise à jour
-                song.title = dialog.result['title']
-                song.artist = dialog.result.get('artist')
-                song.key = dialog.result.get('key')
-                song.tempo = dialog.result.get('tempo')
-                song.genre = dialog.result.get('genre')
-                song.difficulty = dialog.result.get('difficulty')
-                song.instruments = json.dumps(dialog.result.get('instruments', []))
-                song.pages = dialog.result.get('pages')
-                song.notes = dialog.result.get('notes')
-
-                db.session.commit()
-
+            update_song_from_dict(song_id, dialog.result)
             messagebox.showinfo("Succès", "Morceau modifié avec succès")
             self.refresh_catalog()
             self.refresh_available_songs()
@@ -377,32 +314,21 @@ class MusicBookGUI:
                                    "Êtes-vous sûr de vouloir supprimer ce morceau ?"):
             return
 
-        song_id = int(selection[0])
-
-        with app.app_context():
-            song = Song.query.get(song_id)
-            if song:
-                db.session.delete(song)
-                db.session.commit()
-
+        delete_song_by_id(int(selection[0]))
         messagebox.showinfo("Succès", "Morceau supprimé")
         self.refresh_catalog()
         self.refresh_available_songs()
 
-    # ===== MÉTHODES BOOK BUILDER =====
+    # ===== METHODES BOOK BUILDER =====
 
     def refresh_available_songs(self):
         """Actualiser la liste des morceaux disponibles"""
-        # Vider la liste
         for item in self.available_tree.get_children():
             self.available_tree.delete(item)
 
-        with app.app_context():
-            songs = Song.query.order_by(Song.title).all()
-
-            for song in songs:
-                self.available_tree.insert('', tk.END, text=song.title, iid=str(song.id),
-                                          values=(song.artist or '',))
+        for song_id, title, artist in get_available_songs():
+            self.available_tree.insert('', tk.END, text=title, iid=str(song_id),
+                                      values=(artist,))
 
     def add_to_book(self):
         """Ajouter morceaux sélectionnés au book"""
@@ -411,20 +337,15 @@ class MusicBookGUI:
             messagebox.showwarning("Attention", "Sélectionnez au moins un morceau")
             return
 
-        for song_id in selection:
-            song_id = int(song_id)
-
-            # Vérifier si déjà dans le book
+        for item_id in selection:
+            song_id = int(item_id)
             if song_id in self.selected_songs:
                 continue
-
-            with app.app_context():
-                song = Song.query.get(song_id)
-                if song:
-                    self.selected_songs.append(song_id)
-                    self.book_tree.insert('', tk.END, text=song.title, iid=str(song.id),
-                                         values=(song.artist or '', song.pages or ''))
-
+            info = get_song_info(song_id)
+            if info:
+                self.selected_songs.append(song_id)
+                self.book_tree.insert('', tk.END, text=info[0], iid=str(song_id),
+                                     values=(info[1], info[2]))
         self.update_book_info()
 
     def remove_from_book(self):
@@ -449,8 +370,6 @@ class MusicBookGUI:
 
         if index > 0:
             self.book_tree.move(item, '', index - 1)
-
-            # Mettre à jour selected_songs
             song_id = int(item)
             self.selected_songs.remove(song_id)
             self.selected_songs.insert(index - 1, song_id)
@@ -466,8 +385,6 @@ class MusicBookGUI:
 
         if index < len(self.book_tree.get_children()) - 1:
             self.book_tree.move(item, '', index + 1)
-
-            # Mettre à jour selected_songs
             song_id = int(item)
             self.selected_songs.remove(song_id)
             self.selected_songs.insert(index + 1, song_id)
@@ -478,23 +395,14 @@ class MusicBookGUI:
             self.book_info_label.config(text="Book vide")
             return
 
-        total_pages = 0
-        with app.app_context():
-            for song_id in self.selected_songs:
-                song = Song.query.get(song_id)
-                if song and song.pages:
-                    total_pages += song.pages
-
-        # Ajouter pages système
-        if self.include_cover_var.get():
-            total_pages += 1
-        if self.include_toc_var.get():
-            total_pages += 2
-        if self.include_index_var.get():
-            total_pages += 1
-
+        song_count, total_pages = calculate_book_pages(
+            self.selected_songs,
+            self.include_cover_var.get(),
+            self.include_toc_var.get(),
+            self.include_index_var.get()
+        )
         self.book_info_label.config(
-            text=f"{len(self.selected_songs)} morceaux • ~{total_pages} pages"
+            text=f"{song_count} morceaux • ~{total_pages} pages"
         )
 
     def save_book(self):
@@ -503,29 +411,17 @@ class MusicBookGUI:
             messagebox.showwarning("Attention", "Le book est vide")
             return
 
-        with app.app_context():
-            book = Book(
-                title=self.book_title_var.get(),
-                instrument=self.book_instrument_var.get(),
-                include_cover=self.include_cover_var.get(),
-                include_toc=self.include_toc_var.get(),
-                include_index=self.include_index_var.get()
-            )
-            db.session.add(book)
-            db.session.flush()  # Pour obtenir l'ID
-
-            # Ajouter les morceaux
-            for position, song_id in enumerate(self.selected_songs, start=1):
-                book_song = BookSong(
-                    book_id=book.id,
-                    song_id=song_id,
-                    position=position
-                )
-                db.session.add(book_song)
-
-            db.session.commit()
-            self.current_book = book.id
-
+        book_options = {
+            'include_cover': self.include_cover_var.get(),
+            'include_toc': self.include_toc_var.get(),
+            'include_index': self.include_index_var.get(),
+        }
+        self.current_book = save_book_to_db(
+            self.book_title_var.get(),
+            self.book_instrument_var.get(),
+            book_options,
+            self.selected_songs
+        )
         messagebox.showinfo("Succès", f"Book sauvegardé (ID: {self.current_book})")
 
     def generate_books(self):
@@ -534,37 +430,26 @@ class MusicBookGUI:
             messagebox.showwarning("Attention", "Le book est vide")
             return
 
-        # Import du générateur
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend', 'services'))
-        from pdf_generator import MusicBookGenerator
-
         try:
-            # Générer le PDF
-            generator = MusicBookGenerator()
-            output_path = generator.generate_from_song_ids(
-                song_ids=self.selected_songs,
-                title=self.book_title_var.get(),
-                instrument=self.book_instrument_var.get(),
-                include_cover=self.include_cover_var.get(),
-                include_toc=self.include_toc_var.get(),
-                include_index=self.include_index_var.get()
+            gen_options = {
+                'include_cover': self.include_cover_var.get(),
+                'include_toc': self.include_toc_var.get(),
+                'include_index': self.include_index_var.get(),
+            }
+            output_path = generate_pdf(
+                self.selected_songs,
+                self.book_title_var.get(),
+                self.book_instrument_var.get(),
+                gen_options
             )
-
-            # Afficher le résultat
-            messagebox.showinfo(
-                "Succès",
-                f"PDF généré avec succès!\n\n{output_path}"
-            )
-
-            # Proposer d'ouvrir le fichier
+            messagebox.showinfo("Succès", f"PDF généré avec succès!\n\n{output_path}")
             if messagebox.askyesno("Ouvrir", "Voulez-vous ouvrir le PDF ?"):
                 import subprocess
                 subprocess.run(['xdg-open', output_path], check=False)
-
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de la génération:\n{str(e)}")
 
-    # ===== MÉTHODES IMPORT =====
+    # ===== METHODES IMPORT =====
 
     def import_pdfs(self):
         """Importer des fichiers PDF"""
@@ -572,157 +457,30 @@ class MusicBookGUI:
             title="Sélectionner des fichiers PDF",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
         )
-
         if not files:
             return
 
         for file_path in files:
-            # Extraire le nom du fichier comme titre par défaut
             title = Path(file_path).stem
-
-            # Dialogue pour métadonnées
             dialog = SongDialog(self.root, f"Métadonnées - {title}",
                                {'title': title, 'pdf_path': file_path})
-
             if dialog.result:
-                with app.app_context():
-                    song = Song.from_dict(dialog.result)
-                    db.session.add(song)
-                    db.session.commit()
+                create_song(dialog.result)
 
         messagebox.showinfo("Succès", f"{len(files)} fichier(s) importé(s)")
         self.refresh_catalog()
         self.refresh_available_songs()
 
 
-class SongDialog:
-    """Dialogue pour ajouter/éditer un morceau"""
-
-    def __init__(self, parent, title, song_data=None):
-        self.result = None
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title(title)
-        self.dialog.geometry("500x600")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Frame principal
-        frame = ttk.Frame(self.dialog, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        # Titre
-        ttk.Label(frame, text="Titre *").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.title_var = tk.StringVar(value=song_data.get('title', '') if song_data else '')
-        ttk.Entry(frame, textvariable=self.title_var, width=40).grid(row=0, column=1, pady=5)
-
-        # Artiste
-        ttk.Label(frame, text="Artiste").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.artist_var = tk.StringVar(value=song_data.get('artist', '') if song_data else '')
-        ttk.Entry(frame, textvariable=self.artist_var, width=40).grid(row=1, column=1, pady=5)
-
-        # Tonalité
-        ttk.Label(frame, text="Tonalité").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.key_var = tk.StringVar(value=song_data.get('key', '') if song_data else '')
-        ttk.Entry(frame, textvariable=self.key_var, width=40).grid(row=2, column=1, pady=5)
-
-        # Tempo
-        ttk.Label(frame, text="Tempo (BPM)").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.tempo_var = tk.StringVar(value=str(song_data.get('tempo', '')) if song_data and song_data.get('tempo') else '')
-        ttk.Entry(frame, textvariable=self.tempo_var, width=40).grid(row=3, column=1, pady=5)
-
-        # Genre
-        ttk.Label(frame, text="Genre").grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.genre_var = tk.StringVar(value=song_data.get('genre', '') if song_data else '')
-        ttk.Entry(frame, textvariable=self.genre_var, width=40).grid(row=4, column=1, pady=5)
-
-        # Difficulté
-        ttk.Label(frame, text="Difficulté").grid(row=5, column=0, sticky=tk.W, pady=5)
-        self.difficulty_var = tk.StringVar(value=song_data.get('difficulty', '') if song_data else '')
-        ttk.Combobox(frame, textvariable=self.difficulty_var,
-                    values=["", "easy", "medium", "advanced"], width=37).grid(row=5, column=1, pady=5)
-
-        # Instruments (checkboxes)
-        ttk.Label(frame, text="Instruments").grid(row=6, column=0, sticky=tk.W, pady=5)
-        instruments_frame = ttk.Frame(frame)
-        instruments_frame.grid(row=6, column=1, sticky=tk.W, pady=5)
-
-        self.guitar_var = tk.BooleanVar(value='guitar' in song_data.get('instruments', []) if song_data else False)
-        self.bass_var = tk.BooleanVar(value='bass' in song_data.get('instruments', []) if song_data else False)
-        self.violin_var = tk.BooleanVar(value='violin' in song_data.get('instruments', []) if song_data else False)
-
-        ttk.Checkbutton(instruments_frame, text="Guitare", variable=self.guitar_var).pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton(instruments_frame, text="Basse", variable=self.bass_var).pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton(instruments_frame, text="Violon", variable=self.violin_var).pack(side=tk.LEFT, padx=5)
-
-        # Pages
-        ttk.Label(frame, text="Nombre de pages").grid(row=7, column=0, sticky=tk.W, pady=5)
-        self.pages_var = tk.StringVar(value=str(song_data.get('pages', '')) if song_data and song_data.get('pages') else '')
-        ttk.Entry(frame, textvariable=self.pages_var, width=40).grid(row=7, column=1, pady=5)
-
-        # Notes
-        ttk.Label(frame, text="Notes").grid(row=8, column=0, sticky=tk.W, pady=5)
-        self.notes_text = tk.Text(frame, width=40, height=5)
-        self.notes_text.grid(row=8, column=1, pady=5)
-        if song_data and song_data.get('notes'):
-            self.notes_text.insert('1.0', song_data['notes'])
-
-        # PDF path (caché pour import)
-        self.pdf_path = song_data.get('pdf_path', '') if song_data else ''
-
-        # Boutons
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=9, column=0, columnspan=2, pady=20)
-
-        ttk.Button(btn_frame, text="💾 Enregistrer", command=self.save).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="❌ Annuler", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
-
-        # Attendre la fermeture
-        parent.wait_window(self.dialog)
-
-    def save(self):
-        """Sauvegarder les données"""
-        title = self.title_var.get().strip()
-        if not title:
-            messagebox.showwarning("Attention", "Le titre est obligatoire")
-            return
-
-        # Collecter instruments
-        instruments = []
-        if self.guitar_var.get():
-            instruments.append('guitar')
-        if self.bass_var.get():
-            instruments.append('bass')
-        if self.violin_var.get():
-            instruments.append('violin')
-
-        # PDF path
-        pdf_path = self.pdf_path or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'pdfs', f'placeholder_{title.replace(" ", "_")}.pdf')
-
-        self.result = {
-            'title': title,
-            'artist': self.artist_var.get().strip() or None,
-            'key': self.key_var.get().strip() or None,
-            'tempo': int(self.tempo_var.get()) if self.tempo_var.get().strip() else None,
-            'genre': self.genre_var.get().strip() or None,
-            'difficulty': self.difficulty_var.get() or None,
-            'instruments': instruments,
-            'pages': int(self.pages_var.get()) if self.pages_var.get().strip() else None,
-            'notes': self.notes_text.get('1.0', tk.END).strip() or None,
-            'pdf_path': pdf_path
-        }
-
-        self.dialog.destroy()
+# SongDialog extracted to song_dialog.py for modularity
+from song_dialog import SongDialog  # noqa: E402
 
 
 def main():
     root = tk.Tk()
 
-    # Style
     style = ttk.Style()
     style.theme_use('clam')
-
-    # Bouton large pour import
     style.configure('Large.TButton', font=('Arial', 12), padding=10)
 
     app = MusicBookGUI(root)

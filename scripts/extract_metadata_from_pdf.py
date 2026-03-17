@@ -88,13 +88,38 @@ def extract_metadata_from_pdf(pdf_path: str) -> dict:
     return metadata
 
 
+def _detect_song_changes(song, metadata: dict) -> list:
+    """Detect metadata changes between current song and extracted metadata."""
+    changes = []
+    if metadata['key'] and song.key != metadata['key']:
+        changes.append(f"key={metadata['key']}")
+    if metadata['difficulty'] and song.difficulty != metadata['difficulty']:
+        changes.append(f"difficulty={metadata['difficulty']}")
+    if metadata['tuning'] and song.tuning != metadata['tuning']:
+        changes.append(f"tuning={metadata['tuning']}")
+    if metadata['youtube_url'] and song.youtube_url != metadata['youtube_url']:
+        changes.append(f"youtube")
+    return changes
+
+
+def _apply_metadata_changes(song, metadata: dict):
+    """Apply extracted metadata to song object."""
+    if metadata['key']:
+        song.key = metadata['key']
+    if metadata['difficulty']:
+        song.difficulty = metadata['difficulty']
+    if metadata['tuning']:
+        song.tuning = metadata['tuning']
+    if metadata['youtube_url']:
+        song.youtube_url = metadata['youtube_url']
+
+
 def update_song_metadata(dry_run: bool = False):
     """Update all Ultimate Guitar songs with extracted metadata"""
     from app import app, db
     from models.song import Song
 
     with app.app_context():
-        # Get all Ultimate Guitar songs
         songs = Song.query.filter_by(source='ultimate_guitar').all()
 
         print(f"\n{'='*60}")
@@ -115,17 +140,7 @@ def update_song_metadata(dry_run: bool = False):
                 continue
 
             metadata = extract_metadata_from_pdf(pdf_path)
-
-            # Check if we found anything new
-            changes = []
-            if metadata['key'] and song.key != metadata['key']:
-                changes.append(f"key={metadata['key']}")
-            if metadata['difficulty'] and song.difficulty != metadata['difficulty']:
-                changes.append(f"difficulty={metadata['difficulty']}")
-            if metadata['tuning'] and song.tuning != metadata['tuning']:
-                changes.append(f"tuning={metadata['tuning']}")
-            if metadata['youtube_url'] and song.youtube_url != metadata['youtube_url']:
-                changes.append(f"youtube")
+            changes = _detect_song_changes(song, metadata)
 
             if not changes:
                 skipped += 1
@@ -135,14 +150,7 @@ def update_song_metadata(dry_run: bool = False):
             print(f"    {', '.join(changes)}")
 
             if not dry_run:
-                if metadata['key']:
-                    song.key = metadata['key']
-                if metadata['difficulty']:
-                    song.difficulty = metadata['difficulty']
-                if metadata['tuning']:
-                    song.tuning = metadata['tuning']
-                if metadata['youtube_url']:
-                    song.youtube_url = metadata['youtube_url']
+                _apply_metadata_changes(song, metadata)
 
             updated += 1
 

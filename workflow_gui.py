@@ -33,6 +33,10 @@ from widgets.export_options import ExportOptionsPanel
 from widgets.generation import GenerationPanel
 from widgets.book_list import BookListPanel
 from widgets.song_manager import SongManagerDialog
+from widgets.workflow_db import (
+    load_book_songs, save_book_songs, generate_default_book_name,
+    create_book_in_db, update_book_title_in_db
+)
 
 
 class MusicBookWorkflowApp(ctk.CTk):
@@ -60,30 +64,44 @@ class MusicBookWorkflowApp(ctk.CTk):
 
     def _create_layout(self):
         """Create main application layout"""
-        # Configure grid
-        self.grid_columnconfigure(0, weight=0)  # Sidebar fixed
-        self.grid_columnconfigure(1, weight=0)  # Book list fixed
-        self.grid_columnconfigure(2, weight=1)  # Content expands
-        self.grid_rowconfigure(0, weight=0)     # Header fixed
-        self.grid_rowconfigure(1, weight=1)     # Content expands
-        self.grid_rowconfigure(2, weight=0)     # Footer fixed
-
-        # === Header ===
+        self._configure_grid()
         self._create_header()
 
-        # === Main Content Area ===
+        main_frame = self._create_main_frame()
+        self._create_sidebar(main_frame)
+        self._create_book_list_panel(main_frame)
+        self._create_content_area(main_frame)
+        self._create_step_panels()
+
+        self._create_footer()
+        self._show_step(1)
+
+    def _configure_grid(self):
+        """Configure main window grid weights."""
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=0)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=0)
+
+    def _create_main_frame(self):
+        """Create and configure main content area frame."""
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=10, pady=5)
-        main_frame.grid_columnconfigure(0, weight=0)  # Sidebar
-        main_frame.grid_columnconfigure(1, weight=0)  # Book list
-        main_frame.grid_columnconfigure(2, weight=1)  # Step content
+        main_frame.grid_columnconfigure(0, weight=0)
+        main_frame.grid_columnconfigure(1, weight=0)
+        main_frame.grid_columnconfigure(2, weight=1)
         main_frame.grid_rowconfigure(0, weight=1)
+        return main_frame
 
-        # Left: Workflow Sidebar
+    def _create_sidebar(self, main_frame):
+        """Create workflow sidebar."""
         self.sidebar = WorkflowSidebar(main_frame, callback=self._on_step_click, width=180)
         self.sidebar.grid(row=0, column=0, sticky="ns", padx=(0, 10))
 
-        # Middle: Book List
+    def _create_book_list_panel(self, main_frame):
+        """Create book list panel."""
         self.book_list = BookListPanel(
             main_frame,
             on_select=self._on_book_select,
@@ -93,13 +111,15 @@ class MusicBookWorkflowApp(ctk.CTk):
         )
         self.book_list.grid(row=0, column=1, sticky="ns", padx=(0, 10))
 
-        # Right: Step Content Panels
+    def _create_content_area(self, main_frame):
+        """Create content frame for step panels."""
         self.content_frame = ctk.CTkFrame(main_frame, corner_radius=10)
         self.content_frame.grid(row=0, column=2, sticky="nsew")
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(0, weight=1)
 
-        # Create step panels
+    def _create_step_panels(self):
+        """Create all step panels and connect callbacks."""
         self.step_panels: Dict[int, ctk.CTkFrame] = {
             1: SongLibraryPanel(
                 self.content_frame,
@@ -127,15 +147,8 @@ class MusicBookWorkflowApp(ctk.CTk):
             ),
         }
 
-        # Connect generation panel's callbacks
         self.step_panels[4]._new_book_callback = self._on_new_book
         self.step_panels[4]._refresh_books_callback = self._refresh_book_list
-
-        # === Footer ===
-        self._create_footer()
-
-        # Show step 1
-        self._show_step(1)
 
     def _create_header(self):
         """Create application header"""
@@ -309,13 +322,13 @@ class MusicBookWorkflowApp(ctk.CTk):
         # Sauvegarder les changements du book actuel avant de changer
         if self.current_book_id and self.current_book_id != book_id:
             current_songs = self.step_panels[1].get_selected_songs()
-            self._save_book_songs(self.current_book_id, current_songs)
+            save_book_songs(self.current_book_id, current_songs)
         t1 = time.time()
 
         self.current_book_id = book_id
 
         # Charger les morceaux du book depuis la BDD
-        song_ids = self._load_book_songs(book_id)
+        song_ids = load_book_songs(book_id)
         t2 = time.time()
 
         # Mettre à jour le nom du book dans le panel de sélection
@@ -350,61 +363,13 @@ class MusicBookWorkflowApp(ctk.CTk):
             text=f"Book chargé: {book_data.get('title', '')} ({len(song_ids)} morceaux)"
         )
 
-    def _load_book_songs(self, book_id: int) -> List[int]:
-        """Charge les song_ids d'un book depuis la BDD"""
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-        try:
-            from app import app, db
-            from models.book_song import BookSong
-
-            with app.app_context():
-                book_songs = BookSong.query.filter_by(book_id=book_id)\
-                    .order_by(BookSong.position).all()
-                return [bs.song_id for bs in book_songs]
-        except Exception as e:
-            print(f"Erreur chargement morceaux du book: {e}")
-            return []
-
-    def _save_book_songs(self, book_id: int, song_ids: List[int]) -> bool:
-        """Sauvegarde les morceaux d'un book dans la BDD"""
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-        try:
-            from app import app, db
-            from models.book_song import BookSong
-
-            with app.app_context():
-                # Supprimer les anciennes associations
-                BookSong.query.filter_by(book_id=book_id).delete()
-
-                # Ajouter les nouvelles
-                for position, song_id in enumerate(song_ids, 1):
-                    book_song = BookSong(
-                        book_id=book_id,
-                        song_id=song_id,
-                        position=position
-                    )
-                    db.session.add(book_song)
-
-                db.session.commit()
-                print(f"✅ Book {book_id} sauvegardé: {len(song_ids)} morceaux")
-                return True
-        except Exception as e:
-            print(f"❌ Erreur sauvegarde morceaux: {e}")
-            return False
-
     def _on_new_book(self):
         """Handle new book creation - creates a new book in DB with default name"""
         # Generate default name with incrementing number
-        default_name = self._generate_default_book_name()
+        default_name = generate_default_book_name()
 
         # Create the book in database
-        book_id = self._create_book_in_db(default_name)
+        book_id = create_book_in_db(default_name)
 
         if book_id:
             self.current_book_id = book_id
@@ -426,94 +391,14 @@ class MusicBookWorkflowApp(ctk.CTk):
         else:
             self._show_warning("Erreur lors de la creation du book")
 
-    def _generate_default_book_name(self) -> str:
-        """Generate a default book name like 'Mon Music Book 1', 'Mon Music Book 2', etc."""
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-        try:
-            from app import app, db
-            from models.book import Book
-
-            with app.app_context():
-                # Find highest number used
-                existing = Book.query.filter(Book.title.like("Mon Music Book%")).all()
-                numbers = []
-                for book in existing:
-                    title = book.title
-                    if title == "Mon Music Book":
-                        numbers.append(1)
-                    elif title.startswith("Mon Music Book "):
-                        try:
-                            num = int(title.replace("Mon Music Book ", ""))
-                            numbers.append(num)
-                        except ValueError:
-                            pass
-
-                next_num = max(numbers, default=0) + 1
-                if next_num == 1:
-                    return "Mon Music Book"
-                return f"Mon Music Book {next_num}"
-        except Exception as e:
-            print(f"Erreur generation nom: {e}")
-            return "Mon Music Book"
-
-    def _create_book_in_db(self, title: str) -> Optional[int]:
-        """Create a new book in the database and return its ID"""
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-        try:
-            from app import app, db
-            from models.book import Book
-
-            with app.app_context():
-                book = Book(
-                    title=title,
-                    instrument='guitar',
-                    include_cover=True,
-                    include_toc=True,
-                    include_index=True
-                )
-                db.session.add(book)
-                db.session.commit()
-                print(f"Nouveau book cree: {title} (ID: {book.id})")
-                return book.id
-        except Exception as e:
-            print(f"Erreur creation book: {e}")
-            return None
-
     def _on_book_name_change(self, new_name: str):
         """Handle book name change from step 1 - update in DB and refresh card"""
         if not self.current_book_id or not new_name.strip():
             return
 
-        self._update_book_title_in_db(self.current_book_id, new_name)
+        update_book_title_in_db(self.current_book_id, new_name)
         # Refresh only the card display
         self.book_list.update_book_title(self.current_book_id, new_name)
-
-    def _update_book_title_in_db(self, book_id: int, new_title: str) -> bool:
-        """Update book title in database"""
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-        try:
-            from app import app, db
-            from models.book import Book
-
-            with app.app_context():
-                book = Book.query.get(book_id)
-                if book:
-                    book.title = new_title
-                    db.session.commit()
-                    return True
-                return False
-        except Exception as e:
-            print(f"Erreur mise a jour titre: {e}")
-            return False
 
     def _refresh_book_list(self):
         """Refresh the book list after generation"""

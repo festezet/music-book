@@ -22,11 +22,28 @@ class GenerationPanel(ctk.CTkFrame):
         self._create_widgets()
 
     def _create_widgets(self):
-        """Create panel UI"""
+        """Create panel UI by composing sub-sections."""
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # === Header ===
+        self._create_header_section()
+
+        content = ctk.CTkFrame(self, corner_radius=10)
+        content.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        content.grid_columnconfigure(0, weight=1)
+
+        self._create_summary_section(content)
+        ctk.CTkFrame(content, height=2, fg_color=("#e5e7eb", "#374151")).pack(
+            fill="x", padx=20, pady=10
+        )
+        self._create_generation_section(content)
+        ctk.CTkFrame(content, height=2, fg_color=("#e5e7eb", "#374151")).pack(
+            fill="x", padx=20, pady=10
+        )
+        self._create_result_section(content)
+
+    def _create_header_section(self):
+        """Create header with title and back button."""
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
 
@@ -36,7 +53,6 @@ class GenerationPanel(ctk.CTkFrame):
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(side="left")
 
-        # Back button
         ctk.CTkButton(
             header,
             text="<- Précédent",
@@ -46,12 +62,8 @@ class GenerationPanel(ctk.CTkFrame):
             command=self.on_prev
         ).pack(side="right")
 
-        # === Content ===
-        content = ctk.CTkFrame(self, corner_radius=10)
-        content.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
-        content.grid_columnconfigure(0, weight=1)
-
-        # --- Summary Section ---
+    def _create_summary_section(self, content):
+        """Create the summary section inside content frame."""
         summary_frame = ctk.CTkFrame(content, fg_color="transparent")
         summary_frame.pack(fill="x", padx=20, pady=20)
 
@@ -70,16 +82,11 @@ class GenerationPanel(ctk.CTkFrame):
         )
         self.summary_text.pack(fill="x")
 
-        # Separator
-        ctk.CTkFrame(content, height=2, fg_color=("#e5e7eb", "#374151")).pack(
-            fill="x", padx=20, pady=10
-        )
-
-        # --- Generation Section ---
+    def _create_generation_section(self, content):
+        """Create progress bar, status and generate button."""
         gen_frame = ctk.CTkFrame(content, fg_color="transparent")
         gen_frame.pack(fill="x", padx=20, pady=20)
 
-        # Progress bar
         self.progress_label = ctk.CTkLabel(
             gen_frame,
             text="Prêt à générer",
@@ -99,7 +106,6 @@ class GenerationPanel(ctk.CTkFrame):
         )
         self.status_label.pack(pady=5)
 
-        # Generate button
         self.generate_btn = ctk.CTkButton(
             gen_frame,
             text=" Générer le PDF",
@@ -112,12 +118,8 @@ class GenerationPanel(ctk.CTkFrame):
         )
         self.generate_btn.pack(pady=20)
 
-        # Separator
-        ctk.CTkFrame(content, height=2, fg_color=("#e5e7eb", "#374151")).pack(
-            fill="x", padx=20, pady=10
-        )
-
-        # --- Result Section ---
+    def _create_result_section(self, content):
+        """Create result label and action buttons."""
         self.result_frame = ctk.CTkFrame(content, fg_color="transparent")
         self.result_frame.pack(fill="x", padx=20, pady=20)
 
@@ -128,7 +130,6 @@ class GenerationPanel(ctk.CTkFrame):
         )
         self.result_label.pack(pady=10)
 
-        # Action buttons (hidden until generation complete)
         self.action_frame = ctk.CTkFrame(self.result_frame, fg_color="transparent")
 
         ctk.CTkButton(

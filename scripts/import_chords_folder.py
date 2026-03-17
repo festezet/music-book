@@ -208,6 +208,87 @@ def add_song(metadata: dict, pdf_path: str, pages: int = None) -> Song:
 # MAIN IMPORT FUNCTION
 # =============================================================================
 
+def _init_import_stats() -> dict:
+    """Initialize import statistics dictionary."""
+    return {
+        'total_files': 0,
+        'imported': 0,
+        'skipped_duplicate': 0,
+        'skipped_unknown': 0,
+        'errors': 0,
+        'cleaned': 0,
+        'by_source': {'ultimate_guitar': 0, 'songsterr': 0, 'boite_chansons': 0},
+        'by_instrument': {'guitar': 0, 'bass': 0, 'violin': 0}
+    }
+
+
+def _handle_clean(stats: dict, dry_run: bool, clean: bool):
+    """Handle database cleaning if requested."""
+    if clean and not dry_run:
+        stats['cleaned'] = clean_database()
+        print(f"\n🗑️  Base de données nettoyée: {stats['cleaned']} morceaux supprimés\n")
+    elif clean and dry_run:
+        with app.app_context():
+            stats['cleaned'] = Song.query.count()
+        print(f"\n🗑️  [DRY-RUN] Suppression de {stats['cleaned']} morceaux\n")
+
+
+def _process_single_pdf(pdf_file: Path, stats: dict, dry_run: bool, clean: bool):
+    """Process a single PDF file: parse, check duplicates, import."""
+    filename = pdf_file.name
+    print(f"\n📄 {filename}")
+
+    metadata = parse_filename(filename)
+
+    if not metadata:
+        print(f"   ❌ Pattern non reconnu")
+        stats['skipped_unknown'] += 1
+        return
+
+    print(f"   ✅ Source: {metadata['source']}")
+    print(f"   📝 Titre: {metadata['title']}")
+    print(f"   🎤 Artiste: {metadata['artist']}")
+    print(f"   🎸 Instruments: {', '.join(metadata['instruments'])}")
+    print(f"   📋 Type: {metadata['type']}")
+
+    instrument = metadata['instruments'][0] if metadata['instruments'] else 'guitar'
+
+    if not dry_run and not clean:
+        if song_exists(metadata['title'], metadata['artist'], instrument):
+            print(f"   ⏭️  Déjà en base (ignoré)")
+            stats['skipped_duplicate'] += 1
+            return
+
+    pages = get_pdf_page_count(str(pdf_file))
+    if pages:
+        print(f"   📖 Pages: {pages}")
+
+    _import_or_dryrun(metadata, pdf_file, pages, stats, dry_run)
+
+
+def _import_or_dryrun(metadata: dict, pdf_file: Path, pages, stats: dict, dry_run: bool):
+    """Import the song to DB or log dry-run, and update stats."""
+    if not dry_run:
+        try:
+            song_id = add_song(metadata, str(pdf_file), pages)
+            print(f"   ✅ Importé (ID: {song_id})")
+            stats['imported'] += 1
+            stats['by_source'][metadata['source']] += 1
+            for inst in metadata['instruments']:
+                if inst in stats['by_instrument']:
+                    stats['by_instrument'][inst] += 1
+        except Exception as e:
+            print(f"   ❌ Erreur: {e}")
+            stats['errors'] += 1
+    else:
+        print(f"   ⏸️  [DRY-RUN] Serait importé")
+        stats['imported'] += 1
+        stats['by_source'][metadata['source']] += 1
+        for inst in metadata['instruments']:
+            if inst in stats['by_instrument']:
+                stats['by_instrument'][inst] += 1
+
+
 def import_folder(folder_path: str, dry_run: bool = False, clean: bool = False) -> dict:
     """
     Importe tous les PDF d'un dossier
@@ -225,28 +306,9 @@ def import_folder(folder_path: str, dry_run: bool = False, clean: bool = False) 
     if not folder.exists():
         raise ValueError(f"Dossier non trouvé: {folder_path}")
 
-    # Statistiques
-    stats = {
-        'total_files': 0,
-        'imported': 0,
-        'skipped_duplicate': 0,
-        'skipped_unknown': 0,
-        'errors': 0,
-        'cleaned': 0,
-        'by_source': {'ultimate_guitar': 0, 'songsterr': 0, 'boite_chansons': 0},
-        'by_instrument': {'guitar': 0, 'bass': 0, 'violin': 0}
-    }
+    stats = _init_import_stats()
+    _handle_clean(stats, dry_run, clean)
 
-    # Nettoyer la BDD si demandé
-    if clean and not dry_run:
-        stats['cleaned'] = clean_database()
-        print(f"\n🗑️  Base de données nettoyée: {stats['cleaned']} morceaux supprimés\n")
-    elif clean and dry_run:
-        with app.app_context():
-            stats['cleaned'] = Song.query.count()
-        print(f"\n🗑️  [DRY-RUN] Suppression de {stats['cleaned']} morceaux\n")
-
-    # Scanner les fichiers
     pdf_files = list(folder.glob('*.pdf'))
     stats['total_files'] = len(pdf_files)
 
@@ -255,58 +317,7 @@ def import_folder(folder_path: str, dry_run: bool = False, clean: bool = False) 
     print("=" * 80)
 
     for pdf_file in sorted(pdf_files):
-        filename = pdf_file.name
-        print(f"\n📄 {filename}")
-
-        # Parser le nom de fichier
-        metadata = parse_filename(filename)
-
-        if not metadata:
-            print(f"   ❌ Pattern non reconnu")
-            stats['skipped_unknown'] += 1
-            continue
-
-        # Afficher les métadonnées extraites
-        print(f"   ✅ Source: {metadata['source']}")
-        print(f"   📝 Titre: {metadata['title']}")
-        print(f"   🎤 Artiste: {metadata['artist']}")
-        print(f"   🎸 Instruments: {', '.join(metadata['instruments'])}")
-        print(f"   📋 Type: {metadata['type']}")
-
-        # Vérifier si existe déjà
-        instrument = metadata['instruments'][0] if metadata['instruments'] else 'guitar'
-
-        if not dry_run and not clean:
-            if song_exists(metadata['title'], metadata['artist'], instrument):
-                print(f"   ⏭️  Déjà en base (ignoré)")
-                stats['skipped_duplicate'] += 1
-                continue
-
-        # Compter les pages
-        pages = get_pdf_page_count(str(pdf_file))
-        if pages:
-            print(f"   📖 Pages: {pages}")
-
-        # Importer
-        if not dry_run:
-            try:
-                song_id = add_song(metadata, str(pdf_file), pages)
-                print(f"   ✅ Importé (ID: {song_id})")
-                stats['imported'] += 1
-                stats['by_source'][metadata['source']] += 1
-                for inst in metadata['instruments']:
-                    if inst in stats['by_instrument']:
-                        stats['by_instrument'][inst] += 1
-            except Exception as e:
-                print(f"   ❌ Erreur: {e}")
-                stats['errors'] += 1
-        else:
-            print(f"   ⏸️  [DRY-RUN] Serait importé")
-            stats['imported'] += 1
-            stats['by_source'][metadata['source']] += 1
-            for inst in metadata['instruments']:
-                if inst in stats['by_instrument']:
-                    stats['by_instrument'][inst] += 1
+        _process_single_pdf(pdf_file, stats, dry_run, clean)
 
     return stats
 
