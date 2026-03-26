@@ -3,50 +3,269 @@
 {% block title %}Book Builder - Music Book Generator{% endblock %}
 {% block nav_builder %}active{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dark-theme.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h2>Construction de Music Book</h2>
-    <button class="btn btn-primary" id="btnNewBook">Nouveau Book</button>
-</div>
-
-<div class="book-builder-layout">
-    <!-- Panneau gauche : Catalogue disponible -->
-    <div class="available-songs-panel">
-        <h3>Morceaux disponibles</h3>
-
-        <div class="filters-compact">
-            <input type="text" id="searchSongs" placeholder="Rechercher...">
-            <select id="filterInstrumentBuilder">
-                <option value="">Tous</option>
-                <option value="guitar">Guitare</option>
-                <option value="bass">Basse</option>
-                <option value="violin">Violon</option>
-            </select>
-        </div>
-
-        <div id="availableSongsList" class="songs-list">
-            <!-- Morceaux chargés dynamiquement -->
-        </div>
-    </div>
-
-    <!-- Panneau droit : Book en construction -->
-    <div class="book-panel">
-        <div class="book-header">
-            <h3 id="bookTitle">Sélectionnez ou créez un book</h3>
-            <div class="book-actions">
-                <button class="btn btn-secondary" id="btnSaveBook" disabled>Sauvegarder</button>
-                <button class="btn btn-primary" id="btnGenerateBook" disabled>Générer PDF</button>
+<div class="builder-layout">
+    <!-- Sidebar -->
+    <div class="builder-sidebar">
+        <!-- Workflow Steps -->
+        <div class="workflow-steps">
+            <div class="workflow-step current" data-step="1">
+                <div class="step-circle">1</div>
+                <span class="step-label">Selection</span>
+            </div>
+            <div class="workflow-step" data-step="2">
+                <div class="step-circle">2</div>
+                <span class="step-label">Configuration</span>
+            </div>
+            <div class="workflow-step" data-step="3">
+                <div class="step-circle">3</div>
+                <span class="step-label">Export</span>
+            </div>
+            <div class="workflow-step" data-step="4">
+                <div class="step-circle">4</div>
+                <span class="step-label">Generation</span>
             </div>
         </div>
 
-        <div class="book-info" id="bookInfo" style="display: none;">
-            <p><strong>Instrument:</strong> <span id="bookInstrument"></span></p>
-            <p><strong>Morceaux:</strong> <span id="bookSongCount">0</span></p>
-            <p><strong>Pages estimées:</strong> <span id="bookPageCount">0</span></p>
+        <hr class="sidebar-divider">
+
+        <!-- Book List -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header">
+                <h3>Mes Books</h3>
+                <button class="btn btn-primary btn-sm" id="btnNewBook">+ Nouveau</button>
+            </div>
+            <div id="bookList" class="book-list">
+                <p class="empty-state" style="padding: 1rem; font-size: 0.875rem;">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Panel -->
+    <div class="builder-main">
+        <!-- ============ STEP 1 : Selection ============ -->
+        <div id="step1" class="step-panel">
+            <div class="step-header">
+                <h2 id="step1BookName" contenteditable="true" class="editable-title">Selectionnez un book</h2>
+                <div class="step-header-actions">
+                    <span class="song-counter"><span id="step1SongCount">0</span> morceaux &bull; <span id="step1PageCount">0</span> pages</span>
+                    <button class="btn btn-primary" id="btnStep1Next" disabled>Suivant &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="step1-filters">
+                <input type="text" id="step1Search" placeholder="Rechercher un morceau...">
+                <select id="step1Sort">
+                    <option value="">Tri par defaut</option>
+                    <option value="title_asc">Titre A-Z</option>
+                    <option value="title_desc">Titre Z-A</option>
+                    <option value="artist_asc">Artiste A-Z</option>
+                    <option value="artist_desc">Artiste Z-A</option>
+                </select>
+                <select id="step1Instrument">
+                    <option value="">Tous instruments</option>
+                    <option value="guitar">Guitare</option>
+                    <option value="bass">Basse</option>
+                    <option value="violin">Violon</option>
+                </select>
+                <select id="step1Source"><option value="">Toutes sources</option></select>
+                <select id="step1Genre"><option value="">Tous genres</option></select>
+                <select id="step1Artist"><option value="">Tous artistes</option></select>
+            </div>
+
+            <!-- Two columns: Library | Selected -->
+            <div class="selection-columns">
+                <!-- Library -->
+                <div class="selection-col">
+                    <div class="col-header">
+                        <h3>Bibliotheque</h3>
+                        <button class="btn btn-secondary btn-sm" id="btnAddAll">Ajouter tout &rarr;</button>
+                    </div>
+                    <div id="songLibraryList" class="song-list-scroll">
+                        <p class="empty-state" style="padding: 1rem;">Chargement...</p>
+                    </div>
+                </div>
+
+                <!-- Selected -->
+                <div class="selection-col">
+                    <div class="col-header">
+                        <h3>Selectionnes</h3>
+                        <div class="reorder-buttons">
+                            <button class="btn btn-secondary btn-sm" id="btnMoveUp" title="Monter">&#9650;</button>
+                            <button class="btn btn-secondary btn-sm" id="btnMoveDown" title="Descendre">&#9660;</button>
+                            <button class="btn btn-secondary btn-sm" id="btnRemoveSelected" title="Retirer">&#10005;</button>
+                            <button class="btn btn-danger btn-sm" id="btnClearAll" title="Vider tout">Vider</button>
+                        </div>
+                    </div>
+                    <div id="songSelectedList" class="song-list-scroll selected-songs-list">
+                        <p class="empty-state" style="padding: 1rem;">Glissez des morceaux ici ou cliquez "+"</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div id="bookSongsList" class="book-songs-list">
-            <p class="empty-state">Glissez-déposez des morceaux ici pour construire votre book</p>
+        <!-- ============ STEP 2 : Configuration ============ -->
+        <div id="step2" class="step-panel" style="display: none;">
+            <div class="step-header">
+                <h2>Configuration</h2>
+                <div class="step-header-actions">
+                    <button class="btn btn-secondary" id="btnStep2Prev">&larr; Precedent</button>
+                    <button class="btn btn-primary" id="btnStep2Next">Suivant &rarr;</button>
+                </div>
+            </div>
+
+            <div class="config-grid">
+                <!-- Cover -->
+                <div class="config-card">
+                    <h3>Page de garde</h3>
+                    <label class="config-toggle">
+                        <input type="checkbox" id="cfgCover" checked>
+                        <span>Inclure une page de garde</span>
+                    </label>
+                </div>
+
+                <!-- TOC -->
+                <div class="config-card">
+                    <h3>Table des matieres</h3>
+                    <label class="config-toggle">
+                        <input type="checkbox" id="cfgToc" checked>
+                        <span>Inclure la table des matieres</span>
+                    </label>
+                </div>
+
+                <!-- Index -->
+                <div class="config-card">
+                    <h3>Index</h3>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="cfgIndexTitle" checked> Index par titre</label>
+                        <label><input type="checkbox" id="cfgIndexArtist"> Index par artiste</label>
+                        <label><input type="checkbox" id="cfgIndexGenre"> Index par genre</label>
+                    </div>
+                </div>
+
+                <!-- Page Numbers -->
+                <div class="config-card">
+                    <h3>Numerotation des pages</h3>
+                    <label class="config-toggle">
+                        <input type="checkbox" id="cfgPageNumbers" checked>
+                        <span>Afficher les numeros de page</span>
+                    </label>
+                    <div id="pageNumPositionGroup" class="radio-group" style="margin-top: 0.75rem;">
+                        <label><input type="radio" name="pageNumPosition" value="left"> Gauche</label>
+                        <label><input type="radio" name="pageNumPosition" value="center" checked> Centre</label>
+                        <label><input type="radio" name="pageNumPosition" value="right"> Droite</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ STEP 3 : Export ============ -->
+        <div id="step3" class="step-panel" style="display: none;">
+            <div class="step-header">
+                <h2>Parametres d'export</h2>
+                <div class="step-header-actions">
+                    <button class="btn btn-secondary" id="btnStep3Prev">&larr; Precedent</button>
+                    <button class="btn btn-primary" id="btnStep3Next">Suivant &rarr;</button>
+                </div>
+            </div>
+
+            <div class="config-grid">
+                <!-- Format -->
+                <div class="config-card">
+                    <h3>Format de page</h3>
+                    <div class="radio-group">
+                        <label><input type="radio" name="pageFormat" value="A4" checked> A4</label>
+                        <label><input type="radio" name="pageFormat" value="Letter"> Letter</label>
+                        <label><input type="radio" name="pageFormat" value="A5"> A5</label>
+                    </div>
+                </div>
+
+                <!-- Orientation -->
+                <div class="config-card">
+                    <h3>Orientation</h3>
+                    <div class="radio-group">
+                        <label><input type="radio" name="orientation" value="portrait" checked> Portrait</label>
+                        <label><input type="radio" name="orientation" value="landscape"> Paysage</label>
+                    </div>
+                </div>
+
+                <!-- Margins -->
+                <div class="config-card">
+                    <h3>Marges (mm)</h3>
+                    <div class="margins-grid">
+                        <div class="margin-field">
+                            <label for="marginTop">Haut</label>
+                            <input type="number" id="marginTop" value="20" min="0" max="50">
+                        </div>
+                        <div class="margin-field">
+                            <label for="marginBottom">Bas</label>
+                            <input type="number" id="marginBottom" value="20" min="0" max="50">
+                        </div>
+                        <div class="margin-field">
+                            <label for="marginLeft">Gauche</label>
+                            <input type="number" id="marginLeft" value="15" min="0" max="50">
+                        </div>
+                        <div class="margin-field">
+                            <label for="marginRight">Droite</label>
+                            <input type="number" id="marginRight" value="15" min="0" max="50">
+                        </div>
+                    </div>
+                    <div class="margin-presets">
+                        <button class="btn btn-secondary btn-sm margin-preset" data-preset="standard">Standard</button>
+                        <button class="btn btn-secondary btn-sm margin-preset" data-preset="print">Impression</button>
+                        <button class="btn btn-secondary btn-sm margin-preset" data-preset="compact">Compact</button>
+                    </div>
+                </div>
+
+                <!-- Filename -->
+                <div class="config-card">
+                    <h3>Nom du fichier</h3>
+                    <input type="text" id="cfgFilenamePattern" value="{title}_{instrument}_{date}" class="filename-input">
+                    <div class="filename-preview">Apercu : <strong id="filenamePreview"></strong></div>
+                    <div class="filename-hint">Variables : {title}, {instrument}, {date}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ STEP 4 : Generation ============ -->
+        <div id="step4" class="step-panel" style="display: none;">
+            <div class="step-header">
+                <h2>Generation du PDF</h2>
+                <div class="step-header-actions">
+                    <button class="btn btn-secondary" id="btnStep4Prev">&larr; Precedent</button>
+                </div>
+            </div>
+
+            <!-- Summary Table -->
+            <div class="summary-section">
+                <h3>Recapitulatif</h3>
+                <table class="summary-table">
+                    <tbody id="summaryBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Generate -->
+            <div class="generate-section">
+                <button class="btn btn-primary btn-lg" id="btnGenerate">Generer le PDF</button>
+
+                <div id="generateProgress" class="generate-progress" style="display: none;">
+                    <div class="spinner"></div>
+                    <span>Generation en cours...</span>
+                </div>
+
+                <div id="generateResult" class="pdf-success-box" style="display: none;">
+                    <p>PDF genere avec succes !</p>
+                    <div class="pdf-actions">
+                        <button class="btn btn-primary" id="btnOpenPdf">Ouvrir le PDF</button>
+                        <button class="btn btn-secondary" id="btnDownloadPdf">Telecharger</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -55,14 +274,12 @@
 <div id="newBookModal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close">&times;</span>
-        <h3>Créer un nouveau Music Book</h3>
-
+        <h3>Creer un nouveau Music Book</h3>
         <form id="newBookForm">
             <div class="form-group">
                 <label for="bookTitleInput">Titre du book *</label>
                 <input type="text" id="bookTitleInput" required placeholder="Music Book - Guitare">
             </div>
-
             <div class="form-group">
                 <label for="bookInstrumentInput">Instrument *</label>
                 <select id="bookInstrumentInput" required>
@@ -71,25 +288,26 @@
                     <option value="violin">Violon</option>
                 </select>
             </div>
-
-            <div class="form-group">
-                <label>Options</label>
-                <div class="checkbox-group">
-                    <label><input type="checkbox" name="include_cover" checked> Page de garde</label>
-                    <label><input type="checkbox" name="include_toc" checked> Table des matières</label>
-                    <label><input type="checkbox" name="include_index" checked> Index alphabétique</label>
-                </div>
-            </div>
-
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Créer</button>
+                <button type="submit" class="btn btn-primary">Creer</button>
                 <button type="button" class="btn btn-secondary" id="btnCancelNewBook">Annuler</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- Context menu -->
+<div id="bookContextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" id="ctxRenameBook">Renommer</div>
+    <div class="context-menu-item context-menu-danger" id="ctxDeleteBook">Supprimer</div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/book_builder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book_builder_sidebar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book_builder_step1.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book_builder_step2.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book_builder_step3.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book_builder_step4.js') }}"></script>
 {% endblock %}

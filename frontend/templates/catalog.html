@@ -88,9 +88,46 @@
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="source">Source</label>
+                    <select id="source">
+                        <option value="">Non spécifié</option>
+                        <option value="ultimate_guitar">Ultimate Guitar</option>
+                        <option value="songsterr">Songsterr</option>
+                        <option value="boite_chansons">Boîte à chansons</option>
+                        <option value="manual">Manuel</option>
+                        <option value="other">Autre</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="songType">Type</label>
+                    <select id="songType">
+                        <option value="">Non spécifié</option>
+                        <option value="chords">Accords</option>
+                        <option value="tab">Tablature</option>
+                        <option value="sheet">Partition</option>
+                        <option value="lyrics">Paroles</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="tuning">Accordage</label>
+                    <input type="text" id="tuning" placeholder="E A D G B E, Drop D...">
+                </div>
+
+                <div class="form-group">
+                    <label for="pages">Nombre de pages</label>
+                    <input type="number" id="pages" min="1">
+                </div>
+            </div>
+
             <div class="form-group">
-                <label for="pages">Nombre de pages</label>
-                <input type="number" id="pages" min="1">
+                <label for="youtube_url">Lien YouTube</label>
+                <input type="url" id="youtube_url" placeholder="https://youtube.com/watch?v=...">
             </div>
 
             <div class="form-group">

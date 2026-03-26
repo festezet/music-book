@@ -1,8 +1,30 @@
 /**
  * Catalog page - Gestion du catalogue de morceaux
  */
+(function() {
 
 const { apiRequest, showNotification, formatInstrument, formatDifficulty, debounce } = window.MusicBookApp;
+
+function formatSource(source) {
+    const labels = {
+        'ultimate_guitar': 'Ultimate Guitar',
+        'songsterr': 'Songsterr',
+        'boite_chansons': 'Boîte à chansons',
+        'manual': 'Manuel',
+        'other': 'Autre'
+    };
+    return labels[source] || source;
+}
+
+function formatType(type) {
+    const labels = {
+        'chords': 'Accords',
+        'tab': 'Tablature',
+        'sheet': 'Partition',
+        'lyrics': 'Paroles'
+    };
+    return labels[type] || type;
+}
 
 let currentSongs = [];
 let currentFilters = {
@@ -59,6 +81,8 @@ function renderCatalog() {
                 ${song.key ? `<span class="badge">Tonalité: ${song.key}</span>` : ''}
                 ${song.difficulty ? `<span class="badge">${formatDifficulty(song.difficulty)}</span>` : ''}
                 ${song.pages ? `<span class="badge">${song.pages} page(s)</span>` : ''}
+                ${song.source ? `<span class="badge" style="background-color: #fef3c7;">${formatSource(song.source)}</span>` : ''}
+                ${song.type ? `<span class="badge" style="background-color: #e0e7ff;">${formatType(song.type)}</span>` : ''}
             </div>
             <div class="metadata" style="margin-top: 0.5rem;">
                 ${(song.instruments || []).map(inst =>
@@ -104,6 +128,10 @@ async function editSong(songId) {
         document.getElementById('difficulty').value = song.difficulty || '';
         document.getElementById('pages').value = song.pages || '';
         document.getElementById('notes').value = song.notes || '';
+        document.getElementById('source').value = song.source || '';
+        document.getElementById('songType').value = song.type || '';
+        document.getElementById('tuning').value = song.tuning || '';
+        document.getElementById('youtube_url').value = song.youtube_url || '';
 
         // Instruments (checkboxes)
         document.querySelectorAll('input[name="instruments"]').forEach(checkbox => {
@@ -143,8 +171,16 @@ async function saveSong(e) {
         instruments: instruments,
         pages: parseInt(document.getElementById('pages').value) || null,
         notes: document.getElementById('notes').value,
-        pdf_path: `data/pdfs/placeholder_${Date.now()}.pdf` // Placeholder - relative path
+        source: document.getElementById('source').value || null,
+        type: document.getElementById('songType').value || null,
+        tuning: document.getElementById('tuning').value || null,
+        youtube_url: document.getElementById('youtube_url').value || null
     };
+
+    // pdf_path only needed for creation — use placeholder
+    if (!songId) {
+        data.pdf_path = `data/pdfs/placeholder_${Date.now()}.pdf`;
+    }
 
     try {
         if (songId) {
@@ -213,3 +249,5 @@ songModal.addEventListener('click', (e) => {
 
 // Chargement initial
 document.addEventListener('DOMContentLoaded', loadCatalog);
+
+})();

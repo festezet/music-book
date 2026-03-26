@@ -386,9 +386,18 @@ class MusicBookGenerator(SectionGeneratorMixin, OverlayMixin):
                 instrument=book.instrument,
                 include_cover=getattr(book, 'include_cover', True),
                 include_toc=getattr(book, 'include_toc', True),
-                include_index_title=getattr(book, 'include_index', True),
-                include_index_artist=False,
-                include_index_genre=False,
+                include_index_title=getattr(book, 'include_index_title', True),
+                include_index_artist=getattr(book, 'include_index_artist', False),
+                include_index_genre=getattr(book, 'include_index_genre', False),
+                page_numbers=getattr(book, 'page_numbers', True),
+                page_number_position=getattr(book, 'page_number_position', 'center'),
+                page_format=getattr(book, 'format', 'A4'),
+                orientation=getattr(book, 'orientation', 'portrait'),
+                margin_top=getattr(book, 'margin_top', 20),
+                margin_bottom=getattr(book, 'margin_bottom', 20),
+                margin_left=getattr(book, 'margin_left', 15),
+                margin_right=getattr(book, 'margin_right', 15),
+                filename_pattern=getattr(book, 'filename_pattern', '{title}_{instrument}_{date}'),
             )
 
             return self.generate(songs_data, config)

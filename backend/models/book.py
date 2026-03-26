@@ -19,6 +19,20 @@ class Book(db.Model):
     include_toc = db.Column(db.Boolean, default=True)  # Table of contents
     include_index = db.Column(db.Boolean, default=True)  # Alphabetical index
     include_cover = db.Column(db.Boolean, default=True)  # Cover page
+    # Index options
+    include_index_title = db.Column(db.Boolean, default=True)
+    include_index_artist = db.Column(db.Boolean, default=False)
+    include_index_genre = db.Column(db.Boolean, default=False)
+    # Page numbering
+    page_numbers = db.Column(db.Boolean, default=True)
+    page_number_position = db.Column(db.String(10), default='center')  # left, center, right
+    # Margins (mm)
+    margin_top = db.Column(db.Integer, default=20)
+    margin_bottom = db.Column(db.Integer, default=20)
+    margin_left = db.Column(db.Integer, default=15)
+    margin_right = db.Column(db.Integer, default=15)
+    # Output
+    filename_pattern = db.Column(db.String(255), default='{title}_{instrument}_{date}')
     pdf_path = db.Column(db.String(500), nullable=True)  # Chemin vers le PDF généré
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -39,6 +53,16 @@ class Book(db.Model):
             'include_toc': self.include_toc,
             'include_index': self.include_index,
             'include_cover': self.include_cover,
+            'include_index_title': self.include_index_title if self.include_index_title is not None else True,
+            'include_index_artist': self.include_index_artist if self.include_index_artist is not None else False,
+            'include_index_genre': self.include_index_genre if self.include_index_genre is not None else False,
+            'page_numbers': self.page_numbers if self.page_numbers is not None else True,
+            'page_number_position': self.page_number_position or 'center',
+            'margin_top': self.margin_top if self.margin_top is not None else 20,
+            'margin_bottom': self.margin_bottom if self.margin_bottom is not None else 20,
+            'margin_left': self.margin_left if self.margin_left is not None else 15,
+            'margin_right': self.margin_right if self.margin_right is not None else 15,
+            'filename_pattern': self.filename_pattern or '{title}_{instrument}_{date}',
             'pdf_path': self.pdf_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'song_count': len(self.book_songs)
@@ -54,7 +78,17 @@ class Book(db.Model):
             orientation=data.get('orientation', 'portrait'),
             include_toc=data.get('include_toc', True),
             include_index=data.get('include_index', True),
-            include_cover=data.get('include_cover', True)
+            include_cover=data.get('include_cover', True),
+            include_index_title=data.get('include_index_title', True),
+            include_index_artist=data.get('include_index_artist', False),
+            include_index_genre=data.get('include_index_genre', False),
+            page_numbers=data.get('page_numbers', True),
+            page_number_position=data.get('page_number_position', 'center'),
+            margin_top=data.get('margin_top', 20),
+            margin_bottom=data.get('margin_bottom', 20),
+            margin_left=data.get('margin_left', 15),
+            margin_right=data.get('margin_right', 15),
+            filename_pattern=data.get('filename_pattern', '{title}_{instrument}_{date}')
         )
 
     def get_songs(self):

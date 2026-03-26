@@ -2,7 +2,7 @@
 Routes API REST pour Music Book Generator
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file, current_app
 from models.song import db, Song
 from models.book import Book
 from models.book_song import BookSong
@@ -13,6 +13,11 @@ import json
 api_bp = Blueprint('api', __name__)
 
 
+def allowed_file(filename):
+    """Vérifie si l'extension du fichier est autorisée"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'pdf'}
+
+
 # ============================================
 # CATALOG ENDPOINTS
 # ============================================
@@ -20,22 +25,26 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/catalog', methods=['GET'])
 def get_catalog():
     """Liste des morceaux avec filtres optionnels"""
-    # Paramètres de filtrage
     instrument = request.args.get('instrument')
     difficulty = request.args.get('difficulty')
     artist = request.args.get('artist')
     search = request.args.get('search')
+    source = request.args.get('source')
+    genre = request.args.get('genre')
+    sort = request.args.get('sort', 'title_asc')
 
-    # Query de base
     query = Song.query
 
-    # Filtres
     if instrument:
         query = query.filter(Song.instruments.contains(f'"{instrument}"'))
     if difficulty:
         query = query.filter(Song.difficulty == difficulty)
     if artist:
         query = query.filter(Song.artist.ilike(f'%{artist}%'))
+    if source:
+        query = query.filter(Song.source == source)
+    if genre:
+        query = query.filter(Song.genre.ilike(f'%{genre}%'))
     if search:
         query = query.filter(
             db.or_(
@@ -44,8 +53,33 @@ def get_catalog():
             )
         )
 
-    songs = query.order_by(Song.title).all()
+    # Sorting
+    sort_map = {
+        'title_asc': Song.title.asc(),
+        'title_desc': Song.title.desc(),
+        'artist_asc': Song.artist.asc(),
+        'artist_desc': Song.artist.desc(),
+    }
+    order = sort_map.get(sort, Song.title.asc())
+    songs = query.order_by(order).all()
     return jsonify([song.to_dict() for song in songs])
+
+
+@api_bp.route('/catalog/filters', methods=['GET'])
+def get_catalog_filters():
+    """Retourne les valeurs distinctes pour les filtres du catalogue"""
+    sources = [r[0] for r in db.session.query(Song.source).distinct()
+               if r[0] is not None and r[0].strip()]
+    genres = [r[0] for r in db.session.query(Song.genre).distinct()
+              if r[0] is not None and r[0].strip()]
+    artists = [r[0] for r in db.session.query(Song.artist).distinct()
+               if r[0] is not None and r[0].strip()]
+
+    return jsonify({
+        'sources': sorted(sources),
+        'genres': sorted(genres),
+        'artists': sorted(artists)
+    })
 
 
 @api_bp.route('/catalog/<int:song_id>', methods=['GET'])
@@ -94,6 +128,14 @@ def update_song(song_id):
         song.notes = data['notes']
     if 'pages' in data:
         song.pages = data['pages']
+    if 'source' in data:
+        song.source = data['source']
+    if 'type' in data:
+        song.type = data['type']
+    if 'tuning' in data:
+        song.tuning = data['tuning']
+    if 'youtube_url' in data:
+        song.youtube_url = data['youtube_url']
 
     db.session.commit()
     return jsonify(song.to_dict())
@@ -150,20 +192,14 @@ def update_book(book_id):
     book = Book.query.get_or_404(book_id)
     data = request.get_json()
 
-    if 'title' in data:
-        book.title = data['title']
-    if 'instrument' in data:
-        book.instrument = data['instrument']
-    if 'format' in data:
-        book.format = data['format']
-    if 'orientation' in data:
-        book.orientation = data['orientation']
-    if 'include_toc' in data:
-        book.include_toc = data['include_toc']
-    if 'include_index' in data:
-        book.include_index = data['include_index']
-    if 'include_cover' in data:
-        book.include_cover = data['include_cover']
+    for field in ['title', 'instrument', 'format', 'orientation',
+                   'include_toc', 'include_index', 'include_cover',
+                   'include_index_title', 'include_index_artist', 'include_index_genre',
+                   'page_numbers', 'page_number_position',
+                   'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
+                   'filename_pattern']:
+        if field in data:
+            setattr(book, field, data[field])
 
     db.session.commit()
     return jsonify(book.to_dict())
@@ -260,21 +296,50 @@ def reorder_book_songs(book_id):
 
 
 # ============================================
-# GENERATION ENDPOINTS (À IMPLÉMENTER)
+# GENERATION ENDPOINTS
 # ============================================
 
 @api_bp.route('/books/<int:book_id>/generate', methods=['POST'])
 def generate_book(book_id):
-    """Générer les PDF du book (3 versions)"""
+    """Générer le PDF du book"""
     book = Book.query.get_or_404(book_id)
 
-    # TODO: Implémenter la génération de PDF
-    # services/pdf_generator.py
+    if not book.book_songs:
+        return jsonify({'error': 'Le book ne contient aucun morceau'}), 400
 
-    return jsonify({
-        'message': 'Book generation not implemented yet',
-        'book_id': book_id
-    }), 501  # Not Implemented
+    try:
+        from services.pdf_generator import MusicBookGenerator
+        generator = MusicBookGenerator()
+        output_path = generator.generate_from_book_id(book_id)
+
+        book.pdf_path = output_path
+        db.session.commit()
+
+        return jsonify({
+            'message': 'PDF généré avec succès',
+            'pdf_path': output_path,
+            'book_id': book_id
+        })
+    except Exception as e:
+        current_app.logger.error(f"Erreur génération book {book_id}: {e}")
+        return jsonify({'error': f'Erreur de génération: {str(e)}'}), 500
+
+
+@api_bp.route('/books/<int:book_id>/download', methods=['GET'])
+def download_book(book_id):
+    """Télécharger ou ouvrir le PDF d'un book"""
+    book = Book.query.get_or_404(book_id)
+
+    if not book.pdf_path or not os.path.exists(book.pdf_path):
+        return jsonify({'error': 'Aucun PDF disponible pour ce book'}), 404
+
+    as_attachment = request.args.get('dl') == '1'
+    return send_file(
+        book.pdf_path,
+        mimetype='application/pdf',
+        as_attachment=as_attachment,
+        download_name=f"{book.title}.pdf"
+    )
 
 
 @api_bp.route('/books/<int:book_id>/preview', methods=['GET'])
@@ -312,18 +377,88 @@ def preview_book(book_id):
 
 
 # ============================================
-# IMPORT/EXPORT ENDPOINTS (À IMPLÉMENTER)
+# IMPORT/EXPORT ENDPOINTS
 # ============================================
 
 @api_bp.route('/import/pdf', methods=['POST'])
 def import_pdf():
-    """Upload de PDF"""
-    # TODO: Implémenter l'upload de PDF
-    return jsonify({'message': 'PDF import not implemented yet'}), 501
+    """Upload de PDF — réception multipart, sauvegarde et création Song"""
+    from PyPDF2 import PdfReader
+    from config import Config
+
+    if 'files' not in request.files:
+        return jsonify({'error': 'No files provided'}), 400
+
+    instrument = request.form.get('instrument', 'guitar')
+    if instrument not in Config.PDF_STORAGE:
+        return jsonify({'error': f'Invalid instrument: {instrument}'}), 400
+
+    dest_dir = Config.PDF_STORAGE[instrument]
+    os.makedirs(dest_dir, exist_ok=True)
+
+    results = []
+    files = request.files.getlist('files')
+
+    for file in files:
+        if not file or not file.filename or not allowed_file(file.filename):
+            results.append({'filename': getattr(file, 'filename', '?'), 'status': 'skipped', 'reason': 'Not a PDF'})
+            continue
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(dest_dir, filename)
+
+        # Avoid overwriting
+        if os.path.exists(filepath):
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            while os.path.exists(filepath):
+                filename = f"{base}_{counter}{ext}"
+                filepath = os.path.join(dest_dir, filename)
+                counter += 1
+
+        file.save(filepath)
+
+        # Count pages
+        try:
+            reader = PdfReader(filepath)
+            pages = len(reader.pages)
+        except Exception:
+            pages = 1
+
+        # Extract title from filename
+        title = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ').title()
+
+        # Create Song in DB
+        song = Song(
+            title=title,
+            pdf_path=filepath,
+            pages=pages,
+            instruments=json.dumps([instrument])
+        )
+        db.session.add(song)
+        db.session.commit()
+
+        results.append({
+            'filename': filename,
+            'status': 'imported',
+            'song_id': song.id,
+            'title': song.title,
+            'pages': pages
+        })
+
+    return jsonify({'results': results, 'imported': sum(1 for r in results if r['status'] == 'imported')})
+
 
 
 @api_bp.route('/export/catalog', methods=['GET'])
 def export_catalog():
-    """Export du catalogue (CSV/JSON)"""
-    # TODO: Implémenter l'export
-    return jsonify({'message': 'Catalog export not implemented yet'}), 501
+    """Export du catalogue en JSON téléchargeable"""
+    songs = Song.query.order_by(Song.title).all()
+    data = [song.to_dict() for song in songs]
+
+    response = current_app.response_class(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        mimetype='application/json'
+    )
+    response.headers['Content-Disposition'] = 'attachment; filename=catalog_export.json'
+    return response

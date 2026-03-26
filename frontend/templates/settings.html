@@ -51,7 +51,7 @@
     <section class="settings-section">
         <h3>Actions</h3>
 
-        <button class="btn btn-secondary" id="btnExportCatalog">Exporter le catalogue (CSV)</button>
+        <button class="btn btn-secondary" id="btnExportCatalog">Exporter le catalogue (JSON)</button>
         <button class="btn btn-danger" id="btnClearDatabase">Réinitialiser la base de données</button>
     </section>
 </div>
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', loadStats);
 
 // Export catalogue
 document.getElementById('btnExportCatalog').addEventListener('click', () => {
-    alert('Export non implémenté pour l\'instant');
+    window.location.href = '/api/export/catalog';
 });
 
 // Clear database

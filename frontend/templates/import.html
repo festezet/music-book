@@ -9,6 +9,17 @@
 </div>
 
 <div class="import-container">
+    <div class="import-options" style="margin-bottom: 1.5rem; background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="importInstrument"><strong>Instrument cible</strong></label>
+            <select id="importInstrument" style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.875rem;">
+                <option value="guitar">Guitare</option>
+                <option value="bass">Basse</option>
+                <option value="violin">Violon</option>
+            </select>
+        </div>
+    </div>
+
     <div class="upload-zone" id="uploadZone">
         <div class="upload-icon">📄</div>
         <p>Glissez-déposez vos fichiers PDF ici</p>
@@ -19,14 +30,14 @@
 
     <div class="upload-progress" id="uploadProgress" style="display: none;">
         <h3>Upload en cours...</h3>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
+        <div style="background: #e2e8f0; border-radius: 4px; height: 8px; margin: 1rem 0;">
+            <div id="progressFill" style="background: #2563eb; height: 100%; border-radius: 4px; width: 0%; transition: width 0.3s;"></div>
         </div>
         <p id="progressText">0%</p>
     </div>
 
-    <div class="uploaded-files" id="uploadedFiles" style="display: none;">
-        <h3>Fichiers uploadés</h3>
+    <div class="uploaded-files" id="uploadedFiles" style="display: none; margin-top: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Résultats d'import</h3>
         <div id="uploadedFilesList"></div>
     </div>
 </div>
@@ -34,10 +45,10 @@
 <div class="import-instructions">
     <h3>Instructions</h3>
     <ol>
-        <li>Uploadez vos fichiers PDF (partitions, chords, lyrics)</li>
-        <li>Les métadonnées de base seront extraites automatiquement</li>
-        <li>Complétez les informations manquantes dans le Catalogue</li>
-        <li>Organisez vos morceaux par instrument et difficulté</li>
+        <li>Sélectionnez l'instrument cible</li>
+        <li>Uploadez vos fichiers PDF (partitions, chords, tabs)</li>
+        <li>Les morceaux seront créés automatiquement dans le catalogue</li>
+        <li>Complétez les métadonnées (artiste, tonalité...) dans le Catalogue</li>
     </ol>
 
     <div class="info-box">
@@ -50,14 +61,17 @@
 
 {% block extra_js %}
 <script>
-// Script d'import (simplifié pour l'instant)
+const _app = window.MusicBookApp;
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
 const btnSelectFiles = document.getElementById('btnSelectFiles');
+const uploadProgress = document.getElementById('uploadProgress');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const uploadedFiles = document.getElementById('uploadedFiles');
+const uploadedFilesList = document.getElementById('uploadedFilesList');
 
-btnSelectFiles.addEventListener('click', () => {
-    fileInput.click();
-});
+btnSelectFiles.addEventListener('click', () => fileInput.click());
 
 uploadZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -71,18 +85,82 @@ uploadZone.addEventListener('dragleave', () => {
 uploadZone.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadZone.classList.remove('drag-over');
-    const files = e.dataTransfer.files;
-    handleFiles(files);
+    handleFiles(e.dataTransfer.files);
 });
 
 fileInput.addEventListener('change', (e) => {
     handleFiles(e.target.files);
 });
 
-function handleFiles(files) {
-    console.log('Files to upload:', files.length);
-    alert('Upload de PDF non implémenté pour l\'instant. Voir api/routes.py');
-    // TODO: Implémenter l'upload réel
+async function handleFiles(files) {
+    if (!files.length) return;
+
+    const instrument = document.getElementById('importInstrument').value;
+    const formData = new FormData();
+    formData.append('instrument', instrument);
+    for (const file of files) {
+        formData.append('files', file);
+    }
+
+    // Show progress
+    uploadZone.style.display = 'none';
+    uploadProgress.style.display = 'block';
+    progressFill.style.width = '50%';
+    progressText.textContent = `Upload de ${files.length} fichier(s)...`;
+
+    try {
+        const response = await fetch('/api/import/pdf', {
+            method: 'POST',
+            body: formData
+        });
+
+        progressFill.style.width = '100%';
+        progressText.textContent = '100%';
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Show results
+        uploadProgress.style.display = 'none';
+        uploadedFiles.style.display = 'block';
+
+        uploadedFilesList.innerHTML = data.results.map(r => `
+            <div style="padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>${r.title || r.filename}</strong>
+                    ${r.status === 'imported' ? `<span style="color: #64748b; font-size: 0.875rem;"> — ${r.pages} page(s)</span>` : ''}
+                </div>
+                <span class="badge" style="padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; ${r.status === 'imported' ? 'background: #d1fae5; color: #065f46;' : 'background: #fef3c7; color: #92400e;'}">
+                    ${r.status === 'imported' ? 'Importé' : 'Ignoré'}
+                </span>
+            </div>
+        `).join('');
+
+        // Add "back" and "go to catalog" buttons
+        uploadedFilesList.innerHTML += `
+            <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                <button class="btn btn-secondary" onclick="resetImport()">Importer d'autres fichiers</button>
+                <a href="/catalog" class="btn btn-primary" style="text-decoration: none; color: white; display: inline-flex; align-items: center;">Voir le catalogue</a>
+            </div>
+        `;
+
+    } catch (error) {
+        uploadProgress.style.display = 'none';
+        uploadZone.style.display = '';
+        _app.showNotification(error.message || 'Erreur lors de l\'import', 'error');
+    }
+
+    // Reset file input
+    fileInput.value = '';
+}
+
+function resetImport() {
+    uploadedFiles.style.display = 'none';
+    uploadZone.style.display = '';
 }
 </script>
 {% endblock %}

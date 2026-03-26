@@ -81,6 +81,8 @@ class Song(db.Model):
             pages=data.get('pages'),
             source=data.get('source'),
             type=data.get('type'),
+            youtube_url=data.get('youtube_url'),
+            tuning=data.get('tuning'),
             notes=data.get('notes')
         )
 

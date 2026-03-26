@@ -1,0 +1,216 @@
+/* Dark Theme - Book Builder only */
+
+body.dark-theme {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --text-color: #e2e8f0;
+    --border-color: #334155;
+    --secondary-color: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+body.dark-theme .navbar {
+    background-color: #0f172a;
+    border-bottom-color: #334155;
+}
+
+body.dark-theme .nav-brand h1 {
+    color: #60a5fa;
+}
+
+body.dark-theme .nav-menu a {
+    color: #cbd5e1;
+}
+
+body.dark-theme .nav-menu a:hover {
+    background-color: #1e293b;
+}
+
+body.dark-theme .nav-menu a.active {
+    background-color: #2563eb;
+    color: white;
+}
+
+body.dark-theme footer {
+    background-color: #0f172a;
+    border-top-color: #334155;
+    color: #64748b;
+}
+
+/* Sidebar */
+body.dark-theme .builder-sidebar {
+    background-color: #1e293b;
+    border-color: #334155;
+}
+
+body.dark-theme .book-list-item {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-theme .book-list-item:hover {
+    background-color: #334155;
+}
+
+body.dark-theme .book-list-item.selected {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Main panel */
+body.dark-theme .builder-main {
+    background-color: #1e293b;
+    border-color: #334155;
+}
+
+/* Inputs and selects */
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea {
+    background-color: #0f172a;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+body.dark-theme input::placeholder {
+    color: #64748b;
+}
+
+/* Song items */
+body.dark-theme .song-library-item,
+body.dark-theme .song-selected-item {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-theme .song-library-item:hover,
+body.dark-theme .song-selected-item:hover {
+    background-color: #334155;
+    border-color: #475569;
+}
+
+/* Instrument badges */
+body.dark-theme .badge-guitar {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+body.dark-theme .badge-bass {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+body.dark-theme .badge-violin {
+    background-color: rgba(139, 92, 246, 0.2);
+    color: #8b5cf6;
+}
+
+/* Workflow steps */
+body.dark-theme .workflow-step {
+    color: #64748b;
+}
+
+body.dark-theme .workflow-step.current {
+    color: #3b82f6;
+}
+
+body.dark-theme .workflow-step.completed {
+    color: #22c55e;
+}
+
+body.dark-theme .workflow-step .step-circle {
+    border-color: #475569;
+    background-color: #1e293b;
+    color: #64748b;
+}
+
+body.dark-theme .workflow-step.current .step-circle {
+    border-color: #3b82f6;
+    background-color: #3b82f6;
+    color: white;
+}
+
+body.dark-theme .workflow-step.completed .step-circle {
+    border-color: #22c55e;
+    background-color: #22c55e;
+    color: white;
+}
+
+/* Drop zone */
+body.dark-theme .selected-songs-list {
+    background-color: #0f172a;
+    border-color: #334155;
+}
+
+/* Modal */
+body.dark-theme .modal-content {
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+body.dark-theme .close {
+    color: #94a3b8;
+}
+
+/* Context menu */
+body.dark-theme .context-menu {
+    background-color: #1e293b;
+    border-color: #475569;
+}
+
+body.dark-theme .context-menu-item:hover {
+    background-color: #334155;
+}
+
+/* Buttons adjustments */
+body.dark-theme .btn-secondary {
+    background-color: #475569;
+}
+
+body.dark-theme .btn-secondary:hover {
+    background-color: #64748b;
+}
+
+/* Config cards */
+body.dark-theme .config-card {
+    background-color: #0f172a;
+    border-color: #334155;
+}
+
+/* Summary table */
+body.dark-theme .summary-table td,
+body.dark-theme .summary-table th {
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+/* PDF success box */
+body.dark-theme .pdf-success-box {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* Radio/checkbox labels */
+body.dark-theme label {
+    color: #e2e8f0;
+}
+
+/* Scrollbar */
+body.dark-theme ::-webkit-scrollbar {
+    width: 8px;
+}
+
+body.dark-theme ::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
