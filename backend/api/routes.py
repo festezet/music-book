@@ -195,7 +195,7 @@ def update_book(book_id):
     for field in ['title', 'instrument', 'format', 'orientation',
                    'include_toc', 'include_index', 'include_cover',
                    'include_index_title', 'include_index_artist', 'include_index_genre',
-                   'page_numbers', 'page_number_position',
+                   'page_numbers', 'page_number_position', 'footer_text',
                    'margin_top', 'margin_bottom', 'margin_left', 'margin_right',
                    'filename_pattern']:
         if field in data:

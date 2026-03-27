@@ -49,6 +49,10 @@ const step2 = {
         const radio = document.querySelector(`input[name="pageNumPosition"][value="${pos}"]`);
         if (radio) radio.checked = true;
 
+        // Footer text
+        const footerInput = document.getElementById('cfgFooterText');
+        if (footerInput) footerInput.value = book.footer_text || 'Music Book';
+
         // Show/hide position group
         const posGroup = document.getElementById('pageNumPositionGroup');
         if (posGroup) posGroup.style.display = book.page_numbers ? 'block' : 'none';
@@ -62,7 +66,8 @@ const step2 = {
             include_index_artist: this._isChecked('cfgIndexArtist'),
             include_index_genre: this._isChecked('cfgIndexGenre'),
             page_numbers: this._isChecked('cfgPageNumbers'),
-            page_number_position: document.querySelector('input[name="pageNumPosition"]:checked')?.value || 'center'
+            page_number_position: document.querySelector('input[name="pageNumPosition"]:checked')?.value || 'center',
+            footer_text: document.getElementById('cfgFooterText')?.value || 'Music Book'
         };
         await BB.saveBookSettings(data);
     },

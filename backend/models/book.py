@@ -31,6 +31,8 @@ class Book(db.Model):
     margin_bottom = db.Column(db.Integer, default=20)
     margin_left = db.Column(db.Integer, default=15)
     margin_right = db.Column(db.Integer, default=15)
+    # Footer
+    footer_text = db.Column(db.String(100), default='Music Book')
     # Output
     filename_pattern = db.Column(db.String(255), default='{title}_{instrument}_{date}')
     pdf_path = db.Column(db.String(500), nullable=True)  # Chemin vers le PDF généré
@@ -62,6 +64,7 @@ class Book(db.Model):
             'margin_bottom': self.margin_bottom if self.margin_bottom is not None else 20,
             'margin_left': self.margin_left if self.margin_left is not None else 15,
             'margin_right': self.margin_right if self.margin_right is not None else 15,
+            'footer_text': self.footer_text if self.footer_text is not None else 'Music Book',
             'filename_pattern': self.filename_pattern or '{title}_{instrument}_{date}',
             'pdf_path': self.pdf_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -88,6 +91,7 @@ class Book(db.Model):
             margin_bottom=data.get('margin_bottom', 20),
             margin_left=data.get('margin_left', 15),
             margin_right=data.get('margin_right', 15),
+            footer_text=data.get('footer_text', 'Music Book'),
             filename_pattern=data.get('filename_pattern', '{title}_{instrument}_{date}')
         )
 

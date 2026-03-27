@@ -13,12 +13,9 @@ from datetime import datetime
 from typing import List
 
 from reportlab.lib.units import cm, mm
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.colors import HexColor
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-)
+from reportlab.pdfgen import canvas as pdf_canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
 
 class SectionGeneratorMixin:
@@ -82,155 +79,202 @@ class SectionGeneratorMixin:
     # -----------------------------------------------------------------
 
     def _generate_toc(self, songs, config) -> str:
-        """Genere la table des matieres avec numeros alignes a droite."""
+        """Genere la table des matieres avec canvas pour liens cliquables."""
         temp_path = os.path.join(self.output_dir, "_temp_toc.pdf")
-
         page_size = self._get_page_size(config)
-        content_width = page_size[0] - (config.margin_left + config.margin_right) * mm
+        w, h = page_size
 
-        doc = SimpleDocTemplate(
-            temp_path,
-            pagesize=page_size,
-            topMargin=config.margin_top * mm,
-            bottomMargin=config.margin_bottom * mm,
-            leftMargin=config.margin_left * mm,
-            rightMargin=config.margin_right * mm
-        )
+        left = config.margin_left * mm
+        right = w - config.margin_right * mm
+        top = h - config.margin_top * mm
+        bottom = config.margin_bottom * mm
+        row_height = 26
 
-        story = [
-            Paragraph("Table des Matieres", self.styles['TOCTitle']),
-            Spacer(1, 0.5 * cm)
-        ]
+        c = pdf_canvas.Canvas(temp_path, pagesize=page_size)
+        link_data = []
+        toc_page = 0
 
-        toc_data = self._build_toc_entries(songs)
+        def draw_title(y_pos):
+            c.setFont("Helvetica-Bold", 22)
+            c.setFillColor(HexColor("#2563eb"))
+            c.drawString(left, y_pos, "Table des Matieres")
+            y_pos -= 12
+            c.setStrokeColor(HexColor("#2563eb"))
+            c.setLineWidth(0.8)
+            c.line(left, y_pos, right, y_pos)
+            return y_pos - 20
 
-        if toc_data:
-            table = Table(toc_data, colWidths=[content_width - 50, 50])
-            table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ]))
-            story.append(table)
+        y = draw_title(top - 10)
 
-        doc.build(story)
+        for i, song in enumerate(songs, 1):
+            if y - row_height < bottom:
+                c.showPage()
+                toc_page += 1
+                y = top - 20
+
+            # Entry number + title + artist
+            c.setFont("Helvetica-Bold", 11)
+            c.setFillColor(HexColor("#2563eb"))
+            num_str = f"{i}."
+            c.drawString(left + 5, y, num_str)
+
+            c.setFont("Helvetica", 11)
+            title_text = song.title
+            if song.artist:
+                title_text += f"  —  {song.artist}"
+            title_x = left + 30
+            c.drawString(title_x, y, title_text)
+
+            # Page number right-aligned
+            c.setFont("Helvetica-Bold", 11)
+            page_str = str(song.start_page)
+            c.drawRightString(right, y, page_str)
+
+            # Dot leaders
+            c.setFont("Helvetica", 7)
+            c.setFillColor(HexColor("#64748b"))
+            title_w = c.stringWidth(title_text, "Helvetica", 11)
+            page_w = c.stringWidth(page_str, "Helvetica-Bold", 11)
+            dots_start = title_x + title_w + 8
+            dots_end = right - page_w - 8
+            if dots_end > dots_start:
+                dot_unit = c.stringWidth(" . ", "Helvetica", 7)
+                if dot_unit > 0:
+                    dots = " . " * int((dots_end - dots_start) / dot_unit)
+                    c.drawString(dots_start, y, dots)
+
+            link_data.append({
+                'page': toc_page,
+                'rect': (left, y - 6, right, y + 14),
+                'target_page': song.start_page - 1
+            })
+
+            y -= row_height
+
+        c.save()
+        self._pdf_link_data['_temp_toc.pdf'] = link_data
         return temp_path
 
-    def _build_toc_entries(self, songs) -> list:
-        """Construit les lignes de la table des matieres."""
-        toc_data = []
-        for i, song in enumerate(songs, 1):
-            artist_part = f" - {song.artist}" if song.artist else ""
-            entry_text = (
-                f'<font color="#2563eb"><b>{i}.</b> '
-                f'{song.title}{artist_part}</font>'
-            )
-            page_num = str(song.start_page)
-
-            toc_data.append([
-                Paragraph(entry_text, self.styles['TOCEntry']),
-                Paragraph(
-                    f'<font color="#2563eb"><b>{page_num}</b></font>',
-                    ParagraphStyle(
-                        'PageNum', parent=self.styles['TOCEntry'],
-                        alignment=TA_RIGHT
-                    )
-                )
-            ])
-        return toc_data
-
     # -----------------------------------------------------------------
-    # INDEX HELPERS
+    # INDEX CANVAS HELPERS
     # -----------------------------------------------------------------
 
-    def _create_index_doc(self, config, temp_filename: str):
-        """Cree un SimpleDocTemplate pour un index.
-
-        Returns:
-            (doc, content_width, temp_path)
-        """
+    def _init_index_canvas(self, config, temp_filename):
+        """Initialise un canvas et les parametres de layout pour un index."""
         temp_path = os.path.join(self.output_dir, temp_filename)
         page_size = self._get_page_size(config)
-        content_width = page_size[0] - (config.margin_left + config.margin_right) * mm
+        w, h = page_size
+        c = pdf_canvas.Canvas(temp_path, pagesize=page_size)
+        layout = {
+            'left': config.margin_left * mm,
+            'right': w - config.margin_right * mm,
+            'top': h - config.margin_top * mm,
+            'bottom': config.margin_bottom * mm,
+            'row_height': 22,
+        }
+        return c, layout, temp_path
 
-        doc = SimpleDocTemplate(
-            temp_path,
-            pagesize=page_size,
-            topMargin=config.margin_top * mm,
-            bottomMargin=config.margin_bottom * mm,
-            leftMargin=config.margin_left * mm,
-            rightMargin=config.margin_right * mm
-        )
-        return doc, content_width, temp_path
+    def _draw_index_title(self, c, layout, title):
+        """Dessine le titre d'un index avec ligne de separation."""
+        y = layout['top'] - 10
+        c.setFont("Helvetica-Bold", 22)
+        c.setFillColor(HexColor("#2563eb"))
+        c.drawString(layout['left'], y, title)
+        y -= 12
+        c.setStrokeColor(HexColor("#2563eb"))
+        c.setLineWidth(0.8)
+        c.line(layout['left'], y, layout['right'], y)
+        return y - 20
 
-    def _make_index_table(self, data: list, content_width: float) -> Table:
-        """Cree un Table ReportLab formate pour un index."""
-        table = Table(data, colWidths=[content_width - 50, 50])
-        table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        return table
+    def _draw_section_header(self, c, layout, y, text, current_page):
+        """Dessine un en-tete de section (lettre ou nom de groupe)."""
+        needed = layout['row_height'] + 28
+        if y - needed < layout['bottom']:
+            c.showPage()
+            current_page += 1
+            y = layout['top'] - 20
+        y -= 8
+        c.setFont("Helvetica-Bold", 13)
+        c.setFillColor(HexColor("#2563eb"))
+        c.drawString(layout['left'], y, text)
+        y -= layout['row_height']
+        return y, current_page
 
-    def _make_index_entry(self, text: str, page: int) -> list:
-        """Cree une ligne [texte, numero de page] pour un index."""
-        return [
-            Paragraph(text, self.styles['TOCEntry']),
-            Paragraph(f"<b>{page}</b>", ParagraphStyle(
-                'PageNum', parent=self.styles['TOCEntry'], alignment=TA_RIGHT
-            ))
-        ]
+    def _draw_entry_line(self, c, layout, y, text, page_str, indent=15):
+        """Dessine une ligne d'entree avec dot leaders. Retourne le rect."""
+        left, right = layout['left'], layout['right']
+        text_x = left + indent
 
-    def _add_letter_header(self, story: list, letter: str):
-        """Ajoute un en-tete de lettre dans un index."""
-        story.append(Spacer(1, 0.3 * cm))
-        story.append(Paragraph(
-            f"<b><font color='#2563eb'>{letter}</font></b>",
-            self.styles['Heading2']
-        ))
+        c.setFont("Helvetica", 11)
+        c.setFillColor(HexColor("#1e293b"))
+        c.drawString(text_x, y, text)
+
+        c.setFont("Helvetica-Bold", 11)
+        c.drawRightString(right, y, page_str)
+
+        c.setFont("Helvetica", 7)
+        c.setFillColor(HexColor("#64748b"))
+        text_w = c.stringWidth(text, "Helvetica", 11)
+        page_w = c.stringWidth(page_str, "Helvetica-Bold", 11)
+        dots_start = text_x + text_w + 8
+        dots_end = right - page_w - 8
+        if dots_end > dots_start:
+            dot_unit = c.stringWidth(" . ", "Helvetica", 7)
+            if dot_unit > 0:
+                dots = " . " * int((dots_end - dots_start) / dot_unit)
+                c.drawString(dots_start, y, dots)
+
+        return (left, y - 6, right, y + 14)
+
+    def _check_page_break(self, c, layout, y, current_page):
+        """Verifie si un saut de page est necessaire."""
+        if y - layout['row_height'] < layout['bottom']:
+            c.showPage()
+            current_page += 1
+            y = layout['top'] - 20
+        return y, current_page
 
     # -----------------------------------------------------------------
     # INDEX PAR TITRE
     # -----------------------------------------------------------------
 
     def _generate_index_by_title(self, songs, config) -> str:
-        """Genere l'index alphabetique par titre."""
-        doc, content_width, temp_path = self._create_index_doc(
+        """Genere l'index alphabetique par titre avec liens cliquables."""
+        c, layout, temp_path = self._init_index_canvas(
             config, "_temp_index_title.pdf"
         )
+        link_data = []
+        current_page = 0
 
-        story = [
-            Paragraph("Index par Titre", self.styles['IndexTitle']),
-            Spacer(1, 0.5 * cm)
-        ]
+        y = self._draw_index_title(c, layout, "Index par Titre")
 
         sorted_songs = sorted(songs, key=lambda s: s.title.lower())
         current_letter = ""
-        index_data = []
 
         for song in sorted_songs:
             first_letter = song.title[0].upper()
             if first_letter != current_letter:
-                if index_data:
-                    story.append(self._make_index_table(index_data, content_width))
-                    index_data = []
                 current_letter = first_letter
-                self._add_letter_header(story, current_letter)
+                y, current_page = self._draw_section_header(
+                    c, layout, y, current_letter, current_page
+                )
+
+            y, current_page = self._check_page_break(
+                c, layout, y, current_page
+            )
 
             artist_part = f" ({song.artist})" if song.artist else ""
-            index_data.append(self._make_index_entry(
-                f"{song.title}{artist_part}", song.start_page
-            ))
+            text = f"{song.title}{artist_part}"
+            rect = self._draw_entry_line(c, layout, y, text, str(song.start_page))
+            link_data.append({
+                'page': current_page,
+                'rect': rect,
+                'target_page': song.start_page - 1
+            })
+            y -= layout['row_height']
 
-        if index_data:
-            story.append(self._make_index_table(index_data, content_width))
-
-        doc.build(story)
+        c.save()
+        self._pdf_link_data['_temp_index_title.pdf'] = link_data
         return temp_path
 
     # -----------------------------------------------------------------
@@ -238,15 +282,14 @@ class SectionGeneratorMixin:
     # -----------------------------------------------------------------
 
     def _generate_index_by_artist(self, songs, config) -> str:
-        """Genere l'index alphabetique par artiste."""
-        doc, content_width, temp_path = self._create_index_doc(
+        """Genere l'index alphabetique par artiste avec liens cliquables."""
+        c, layout, temp_path = self._init_index_canvas(
             config, "_temp_index_artist.pdf"
         )
+        link_data = []
+        current_page = 0
 
-        story = [
-            Paragraph("Index par Artiste", self.styles['IndexTitle']),
-            Spacer(1, 0.5 * cm)
-        ]
+        y = self._draw_index_title(c, layout, "Index par Artiste")
 
         by_artist = defaultdict(list)
         for song in songs:
@@ -257,18 +300,35 @@ class SectionGeneratorMixin:
             first_letter = artist[0].upper()
             if first_letter != current_letter:
                 current_letter = first_letter
-                self._add_letter_header(story, current_letter)
+                y, current_page = self._draw_section_header(
+                    c, layout, y, current_letter, current_page
+                )
 
-            story.append(Paragraph(f"<b>{artist}</b>", self.styles['TOCEntry']))
+            # Nom artiste en sous-titre
+            y, current_page = self._check_page_break(
+                c, layout, y, current_page
+            )
+            c.setFont("Helvetica-Bold", 11)
+            c.setFillColor(HexColor("#1e293b"))
+            c.drawString(layout['left'] + 5, y, artist)
+            y -= layout['row_height']
 
-            entries = [
-                self._make_index_entry(f"    {s.title}", s.start_page)
-                for s in sorted(by_artist[artist], key=lambda s: s.title.lower())
-            ]
-            if entries:
-                story.append(self._make_index_table(entries, content_width))
+            for song in sorted(by_artist[artist], key=lambda s: s.title.lower()):
+                y, current_page = self._check_page_break(
+                    c, layout, y, current_page
+                )
+                rect = self._draw_entry_line(
+                    c, layout, y, song.title, str(song.start_page), indent=25
+                )
+                link_data.append({
+                    'page': current_page,
+                    'rect': rect,
+                    'target_page': song.start_page - 1
+                })
+                y -= layout['row_height']
 
-        doc.build(story)
+        c.save()
+        self._pdf_link_data['_temp_index_artist.pdf'] = link_data
         return temp_path
 
     # -----------------------------------------------------------------
@@ -276,15 +336,14 @@ class SectionGeneratorMixin:
     # -----------------------------------------------------------------
 
     def _generate_index_by_genre(self, songs, config) -> str:
-        """Genere l'index par genre."""
-        doc, content_width, temp_path = self._create_index_doc(
+        """Genere l'index par genre avec liens cliquables."""
+        c, layout, temp_path = self._init_index_canvas(
             config, "_temp_index_genre.pdf"
         )
+        link_data = []
+        current_page = 0
 
-        story = [
-            Paragraph("Index par Genre", self.styles['IndexTitle']),
-            Spacer(1, 0.5 * cm)
-        ]
+        y = self._draw_index_title(c, layout, "Index par Genre")
 
         by_genre = defaultdict(list)
         for song in songs:
@@ -292,21 +351,27 @@ class SectionGeneratorMixin:
             by_genre[genre].append(song)
 
         for genre in sorted(by_genre.keys(), key=str.lower):
-            story.append(Spacer(1, 0.3 * cm))
-            story.append(Paragraph(
-                f"<b><font color='#2563eb'>{genre.replace('_', ' ').title()}</font></b>",
-                self.styles['Heading2']
-            ))
+            genre_display = genre.replace('_', ' ').title()
+            y, current_page = self._draw_section_header(
+                c, layout, y, genre_display, current_page
+            )
 
-            entries = []
             for song in sorted(by_genre[genre], key=lambda s: s.title.lower()):
+                y, current_page = self._check_page_break(
+                    c, layout, y, current_page
+                )
                 artist_part = f" ({song.artist})" if song.artist else ""
-                entries.append(self._make_index_entry(
-                    f"    {song.title}{artist_part}", song.start_page
-                ))
+                text = f"{song.title}{artist_part}"
+                rect = self._draw_entry_line(
+                    c, layout, y, text, str(song.start_page)
+                )
+                link_data.append({
+                    'page': current_page,
+                    'rect': rect,
+                    'target_page': song.start_page - 1
+                })
+                y -= layout['row_height']
 
-            if entries:
-                story.append(self._make_index_table(entries, content_width))
-
-        doc.build(story)
+        c.save()
+        self._pdf_link_data['_temp_index_genre.pdf'] = link_data
         return temp_path

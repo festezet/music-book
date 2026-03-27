@@ -83,6 +83,8 @@ class BookConfig:
     margin_bottom: int = 20
     margin_left: int = 15
     margin_right: int = 15
+    # Footer
+    footer_text: str = "Music Book"
     # Output
     output_dir: str = None
     filename_pattern: str = "{title}_{instrument}_{date}"
@@ -174,6 +176,8 @@ class MusicBookGenerator(SectionGeneratorMixin, OverlayMixin):
         print(f"Instrument: {config.instrument}")
 
         temp_files = []
+
+        self._pdf_link_data = {}
 
         try:
             # PHASE 1: Pages systeme (estimation)
@@ -397,6 +401,7 @@ class MusicBookGenerator(SectionGeneratorMixin, OverlayMixin):
                 margin_bottom=getattr(book, 'margin_bottom', 20),
                 margin_left=getattr(book, 'margin_left', 15),
                 margin_right=getattr(book, 'margin_right', 15),
+                footer_text=getattr(book, 'footer_text', 'Music Book') or 'Music Book',
                 filename_pattern=getattr(book, 'filename_pattern', '{title}_{instrument}_{date}'),
             )
 
